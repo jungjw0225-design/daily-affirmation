@@ -1,1 +1,8 @@
-﻿[]
+[
+  { "file": "photos/01.jpg", "caption": "나는 매달 이 문자를 받는다", "order": 0 },
+  { "file": "photos/02.jpg", "caption": "나는 X5를 타고 아침 도로를 달리고 있다", "order": 1 },
+  { "file": "photos/03.jpg", "caption": "좋은 차가 주는 안락함은 내가 만든 것이다", "order": 2 },
+  { "file": "photos/04.jpg", "caption": "나는 대주파크빌로 이사한다", "order": 3 },
+  { "file": "photos/05.jpg", "caption": "나는 이 거실에서 아침 커피를 마신다", "order": 4 },
+  { "file": "photos/06.jpg", "caption": "나는 이 창밖 풍경을 매일 본다", "order": 5 }
+]
