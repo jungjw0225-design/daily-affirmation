@@ -512,7 +512,7 @@
     <div class="set-row" id="sheetHideRow" hidden>
       <label class="toggle"><input type="checkbox" id="sheetHideChk"><span>이 기기에서 숨기기</span></label>
     </div>
-    <p class="hint-line" id="sheetRepoNote" hidden>순서·삭제는 저장소에서 관리돼요.</p>
+    <p class="hint-line" id="sheetRepoNote" hidden>삭제는 저장소에서 관리돼요. 순서 변경은 이 기기에만 적용돼요.</p>
     <div class="sheet-row" id="sheetMoveRow">
       <button class="ctl-btn ghost" id="sheetLeft">&#9664; 앞으로</button>
       <button class="ctl-btn ghost" id="sheetRight">뒤로 &#9654;</button>
@@ -946,6 +946,40 @@ var repoOverrides = LS.get('aff.repoOverrides', {});
 if (!repoOverrides || typeof repoOverrides !== 'object' || Array.isArray(repoOverrides)) repoOverrides = {};
 
 function saveRepoOverrides() { LS.set('aff.repoOverrides', repoOverrides); }
+
+/* 기기별 표시 순서: 저장소+로컬 합쳐진 단일 순서 목록
+   키 = 저장소 사진은 file 경로, 로컬 사진은 id.
+   목록에 없는 새 사진은 기본 순서(저장소 order순 → 로컬 order순)로 뒤에, 사라진 키는 무시 */
+var photoOrder = LS.get('aff.photoOrder', []);
+if (!Array.isArray(photoOrder)) photoOrder = [];
+photoOrder = photoOrder.filter(function (k) { return typeof k === 'string'; });
+
+function savePhotoOrder() { LS.set('aff.photoOrder', photoOrder); }
+
+function mergedPhotoEntries() {
+  var entries = [];
+  repoPhotos.forEach(function (rp) { entries.push({ key: rp.file, type: 'repo', rp: rp }); });
+  photos.forEach(function (p) { entries.push({ key: p.id, type: 'local', p: p }); });
+  var pos = {};
+  photoOrder.forEach(function (k, i) { if (pos[k] === undefined) pos[k] = i; });
+  var listed = [], rest = [];
+  entries.forEach(function (e) { (pos[e.key] !== undefined ? listed : rest).push(e); });
+  listed.sort(function (a, b) { return pos[a.key] - pos[b.key]; });
+  return listed.concat(rest);
+}
+
+function moveMerged(key, dir) {
+  var list = mergedPhotoEntries();
+  var i = -1;
+  for (var n = 0; n < list.length; n++) if (list[n].key === key) { i = n; break; }
+  var j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  var t = list[i]; list[i] = list[j]; list[j] = t;
+  photoOrder = list.map(function (e) { return e.key; });
+  savePhotoOrder();
+  renderBoard();
+  updateSheetNav();
+}
 function repoOv(file) { return repoOverrides[file] || {}; }
 function repoCaption(rp) {
   var ov = repoOv(rp.file);
@@ -985,15 +1019,16 @@ function revokeURL(id) {
   if (urlCache[id]) { try { URL.revokeObjectURL(urlCache[id]); } catch (e) {} delete urlCache[id]; }
 }
 
-/* 슬라이드쇼용 합쳐진 목록: 저장소(숨김 제외, order순) 먼저 + 로컬 */
+/* 슬라이드쇼용 목록: 표시 순서(photoOrder) 적용, 숨긴 저장소 사진 제외 */
 function visibleShowList() {
   var list = [];
-  repoPhotos.forEach(function (rp) {
-    if (repoOv(rp.file).hidden) return;
-    list.push({ src: rp.file, caption: repoCaption(rp) });
-  });
-  photos.forEach(function (p) {
-    list.push({ src: photoURL(p), caption: p.caption || '' });
+  mergedPhotoEntries().forEach(function (e) {
+    if (e.type === 'repo') {
+      if (repoOv(e.rp.file).hidden) return;
+      list.push({ src: e.rp.file, caption: repoCaption(e.rp) });
+    } else {
+      list.push({ src: photoURL(e.p), caption: e.p.caption || '' });
+    }
   });
   return list;
 }
@@ -1026,14 +1061,15 @@ function renderBoard() {
   $('playShowBtn').disabled = visibleShowList().length === 0;
   var grid = $('boardGrid');
   grid.innerHTML = '';
-  /* 저장소 사진 먼저 (숨긴 것도 흐리게 표시해 해제할 수 있게) */
-  repoPhotos.forEach(function (rp) {
-    grid.appendChild(makeThumb(rp.file, repoCaption(rp), true, !!repoOv(rp.file).hidden,
-      function () { openRepoSheet(rp.file); }));
-  });
-  photos.forEach(function (p) {
-    grid.appendChild(makeThumb(photoURL(p), p.caption, false, false,
-      function () { openSheet(p.id); }));
+  /* 표시 순서대로 렌더 (숨긴 저장소 사진도 흐리게 표시해 해제할 수 있게) */
+  mergedPhotoEntries().forEach(function (e) {
+    if (e.type === 'repo') {
+      grid.appendChild(makeThumb(e.rp.file, repoCaption(e.rp), true, !!repoOv(e.rp.file).hidden,
+        (function (f) { return function () { openRepoSheet(f); }; })(e.rp.file)));
+    } else {
+      grid.appendChild(makeThumb(photoURL(e.p), e.p.caption, false, false,
+        (function (id) { return function () { openSheet(id); }; })(e.p.id)));
+    }
   });
 }
 
@@ -1130,14 +1166,19 @@ function openRepoSheet(file) {
   $('sheetHideChk').checked = !!repoOv(file).hidden;
   $('sheetHideRow').hidden = false;
   $('sheetRepoNote').hidden = false;
-  $('sheetMoveRow').hidden = true;   /* 순서·삭제는 저장소에서 관리 */
+  $('sheetMoveRow').hidden = false;  /* 순서는 이 기기에서 자유롭게, 삭제만 저장소에서 관리 */
   $('sheetDelete').hidden = true;
+  updateSheetNav();
   $('sheetBackdrop').hidden = false;
 }
+function currentSheetKey() { return editingRepoFile || editingId; }
 function updateSheetNav() {
-  var i = findPhotoIdx(editingId);
+  var list = mergedPhotoEntries();
+  var key = currentSheetKey();
+  var i = -1;
+  for (var n = 0; n < list.length; n++) if (list[n].key === key) { i = n; break; }
   $('sheetLeft').disabled = i <= 0;
-  $('sheetRight').disabled = i < 0 || i >= photos.length - 1;
+  $('sheetRight').disabled = i < 0 || i >= list.length - 1;
 }
 function closeSheet() {
   if (capSaveTimer) { clearTimeout(capSaveTimer); capSaveTimer = null; flushCaption(); }
@@ -1178,19 +1219,13 @@ $('sheetCaption').addEventListener('input', function () {
   if (capSaveTimer) clearTimeout(capSaveTimer);
   capSaveTimer = setTimeout(function () { capSaveTimer = null; flushCaption(); }, 300);
 });
-$('sheetLeft').addEventListener('click', function () { movePhoto(-1); });
-$('sheetRight').addEventListener('click', function () { movePhoto(1); });
-function movePhoto(dir) {
-  var i = findPhotoIdx(editingId);
-  var j = i + dir;
-  if (i < 0 || j < 0 || j >= photos.length) return;
-  var a = photos[i], b = photos[j];
-  var t = a.order; a.order = b.order; b.order = t;
-  photos.sort(function (x, y) { return x.order - y.order; });
-  Promise.all([dbPut(a), dbPut(b)]).catch(function () { alert('순서 저장에 실패했어요.'); });
-  renderBoard();
-  updateSheetNav();
-}
+/* 순서 이동: 저장소·로컬 구분 없이 합쳐진 표시 순서에서 이동 (이 기기에만 적용) */
+$('sheetLeft').addEventListener('click', function () {
+  if (currentSheetKey()) moveMerged(currentSheetKey(), -1);
+});
+$('sheetRight').addEventListener('click', function () {
+  if (currentSheetKey()) moveMerged(currentSheetKey(), 1);
+});
 $('sheetDelete').addEventListener('click', function () {
   var i = findPhotoIdx(editingId);
   if (i < 0) return;
@@ -1199,6 +1234,8 @@ $('sheetDelete').addEventListener('click', function () {
   dbDelete(id).then(function () {
     photos.splice(findPhotoIdx(id), 1);
     revokeURL(id);
+    photoOrder = photoOrder.filter(function (k) { return k !== id; });  /* 표시 순서에서도 정리 */
+    savePhotoOrder();
     renderBoard();
     closeSheet();
   }).catch(function () { alert('삭제에 실패했어요.'); });
@@ -1504,7 +1541,8 @@ $('exportBtn').addEventListener('click', async function () {
       sentences: sentences,
       records: records,
       settings: settings,
-      repoOverrides: repoOverrides   /* 저장소 사진 로컬 오버라이드 (사진 자체는 저장소에서 관리) */
+      repoOverrides: repoOverrides,  /* 저장소 사진 로컬 오버라이드 (사진 자체는 저장소에서 관리) */
+      photoOrder: photoOrder         /* 기기별 표시 순서 (저장소 file 경로 + 로컬 id) */
     };
     if (settings.exportPhotos && photos.length) {
       data.photos = [];
@@ -1598,10 +1636,13 @@ async function importData(file) {
     settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
     repoOverrides = (data.repoOverrides && typeof data.repoOverrides === 'object' && !Array.isArray(data.repoOverrides))
       ? data.repoOverrides : {};
+    photoOrder = Array.isArray(data.photoOrder)
+      ? data.photoOrder.filter(function (k) { return typeof k === 'string'; }) : [];
     LS.set('aff.sentences', sentences);
     LS.set('aff.records', records);
     LS.set('aff.settings', settings);
     LS.set('aff.repoOverrides', repoOverrides);
+    LS.set('aff.photoOrder', photoOrder);
     LS.set('aff.v', 1);
 
     stopPlay();
