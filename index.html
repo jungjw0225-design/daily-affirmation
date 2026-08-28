@@ -975,6 +975,7 @@ async function handleFiles(fileList) {
   }
   photos.sort(function (a, b) { return a.order - b.order; });
   renderBoard();
+  if (fail < total) requestPersist();   // 사진이 1장이라도 저장됐으면 영구 저장 재요청 (멱등)
   if (fail > 0) alert(total + '장 중 ' + fail + '장은 읽을 수 없어 건너뛰었어요.');
   if (idbFail) alert('일부 사진을 저장하지 못했어요. 저장 공간을 확인해 주세요.');
 }
@@ -1460,6 +1461,18 @@ async function importData(file) {
 }
 
 /* ---------- 초기화 ---------- */
+/* 영구 저장 요청 — 브라우저가 저장소를 임의 정리하지 않도록. 실패·미지원은 조용히 무시 */
+function requestPersist() {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().then(function (granted) {
+        console.log('persistent storage:', granted);
+      }).catch(function () {});
+    }
+  } catch (e) {}
+}
+requestPersist();
+
 $('slideTtsChk').checked = !!settings.slideTts;
 renderRecite();
 renderRecord();
