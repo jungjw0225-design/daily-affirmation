@@ -33,6 +33,10 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+  /* hidden 속성이 클래스의 display 지정(flex 등)에 밀리지 않게 전역 최우선 처리
+     (낭송 탭 빈 상태·카드·완료 화면이 동시에 보이던 버그의 원인) */
+  [hidden] { display: none !important; }
+
   html, body { height: 100%; }
 
   body {
@@ -191,9 +195,15 @@
   .thumb {
     border: 1px solid var(--border); background: var(--surface);
     border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
-    padding: 0; text-align: left; display: block;
+    padding: 0; text-align: left; display: block; position: relative;
   }
   .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
+  .thumb-badge {   /* 저장소(공용) 사진 표시 */
+    position: absolute; top: 7px; right: 7px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 3px rgba(0,0,0,0.45);
+  }
+  .thumb.repo-hidden { opacity: 0.35; }
   .thumb-cap {
     padding: 7px 10px; font-size: 12px; color: var(--text-dim); line-height: 1.4;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -461,6 +471,7 @@
   </header>
   <div class="settings-body">
     <h2>문장</h2>
+    <p class="hint-line" id="repoSentencesNote" hidden>저장소 기본 문장을 사용 중이에요. 여기서 저장하면 이 기기의 문장이 우선돼요.</p>
     <label class="field-label" for="taMorning">아침 확언 — 한 줄에 한 문장</label>
     <textarea id="taMorning" rows="8" placeholder="나는 매일 조금씩 나아지고 있다&#10;나는 내 시간의 주인이다"></textarea>
     <label class="field-label" for="taReasons">지칠 때 읽는 이유 — 비워두면 낭송 탭에서 숨겨져요</label>
@@ -498,7 +509,11 @@
   <div class="sheet" id="editSheet">
     <img class="sheet-img" id="sheetImg" alt="">
     <input type="text" id="sheetCaption" placeholder="캡션 — 슬라이드쇼에서 읽어줄 문장" maxlength="120">
-    <div class="sheet-row">
+    <div class="set-row" id="sheetHideRow" hidden>
+      <label class="toggle"><input type="checkbox" id="sheetHideChk"><span>이 기기에서 숨기기</span></label>
+    </div>
+    <p class="hint-line" id="sheetRepoNote" hidden>순서·삭제는 저장소에서 관리돼요.</p>
+    <div class="sheet-row" id="sheetMoveRow">
       <button class="ctl-btn ghost" id="sheetLeft">&#9664; 앞으로</button>
       <button class="ctl-btn ghost" id="sheetRight">뒤로 &#9654;</button>
     </div>
@@ -550,6 +565,34 @@ var sentences = LS.get('aff.sentences', { morning: [], reasons: [] });
 if (!sentences || typeof sentences !== 'object') sentences = { morning: [], reasons: [] };
 if (!Array.isArray(sentences.morning)) sentences.morning = [];
 if (!Array.isArray(sentences.reasons)) sentences.reasons = [];
+
+/* 저장소 공용 문장: 같은 오리진의 sentences.json (없으면 조용히 무시).
+   로컬 문장이 하나도 없을 때만 대신 사용 — 로컬 저장 시 로컬이 우선 */
+var repoSentences = { morning: [], reasons: [] };
+function effectiveSentences() {
+  var localEmpty = sentences.morning.length === 0 && sentences.reasons.length === 0;
+  var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
+  return (localEmpty && repoHas) ? repoSentences : sentences;
+}
+function usingRepoSentences() { return effectiveSentences() === repoSentences; }
+function loadRepoSentences() {
+  try {
+    if (typeof fetch !== 'function') return;
+    fetch('sentences.json', { cache: 'no-cache' }).then(function (r) {
+      if (!r || !r.ok) return null;
+      return r.json();
+    }).then(function (d) {
+      if (!d || typeof d !== 'object') return;
+      var clean = function (a) {
+        return Array.isArray(a)
+          ? a.map(function (s) { return String(s).trim(); }).filter(function (s) { return s.length > 0; })
+          : [];
+      };
+      repoSentences = { morning: clean(d.morning), reasons: clean(d.reasons) };
+      renderRecite();
+    }).catch(function () {});
+  } catch (e) {}
+}
 
 var records = LS.get('aff.records', {});
 if (!records || typeof records !== 'object') records = {};
@@ -667,7 +710,7 @@ document.addEventListener('visibilitychange', function () {
 var recite = { set: 'morning', idx: 0, done: false, playing: false, paused: false };
 var advanceTimer = null;
 
-function reciteList() { return sentences[recite.set] || []; }
+function reciteList() { return effectiveSentences()[recite.set] || []; }
 
 function sizeClass(t) {
   if (!t) return '';
@@ -677,9 +720,10 @@ function sizeClass(t) {
 }
 
 function renderRecite() {
+  var eff = effectiveSentences();
   var arr = reciteList();
-  var morningEmpty = sentences.morning.length === 0;
-  var hasReasons = sentences.reasons.length > 0;
+  var morningEmpty = eff.morning.length === 0;
+  var hasReasons = eff.reasons.length > 0;
 
   $('reasonsBar').hidden = !hasReasons;
   $('reasonsBar').textContent = recite.set === 'reasons' ? '아침 확언으로 돌아가기' : '지칠 때 읽는 이유';
@@ -893,8 +937,45 @@ function dbDelete(id) { return idbTx('readwrite', function (st) { return st.dele
 function dbClear() { return idbTx('readwrite', function (st) { return st.clear(); }); }
 
 /* ---------- 비전보드 ---------- */
-var photos = [];
+var photos = [];       // 로컬(IndexedDB) 사진
 var urlCache = {};
+
+/* 저장소 공용 사진: 같은 오리진의 photos.json (없으면 조용히 무시) */
+var repoPhotos = [];
+var repoOverrides = LS.get('aff.repoOverrides', {});
+if (!repoOverrides || typeof repoOverrides !== 'object' || Array.isArray(repoOverrides)) repoOverrides = {};
+
+function saveRepoOverrides() { LS.set('aff.repoOverrides', repoOverrides); }
+function repoOv(file) { return repoOverrides[file] || {}; }
+function repoCaption(rp) {
+  var ov = repoOv(rp.file);
+  return typeof ov.caption === 'string' ? ov.caption : (rp.caption || '');
+}
+function findRepo(file) {
+  for (var i = 0; i < repoPhotos.length; i++) if (repoPhotos[i].file === file) return repoPhotos[i];
+  return null;
+}
+function loadRepoPhotos() {
+  try {
+    if (typeof fetch !== 'function') return;
+    fetch('photos.json', { cache: 'no-cache' }).then(function (r) {
+      if (!r || !r.ok) return null;
+      return r.json();
+    }).then(function (list) {
+      if (!Array.isArray(list)) return;
+      repoPhotos = list.filter(function (x) { return x && typeof x.file === 'string'; })
+        .map(function (x) {
+          return {
+            file: x.file,
+            caption: typeof x.caption === 'string' ? x.caption : '',
+            order: Number(x.order) || 0
+          };
+        })
+        .sort(function (a, b) { return a.order - b.order; });
+      renderBoard();
+    }).catch(function () {});
+  } catch (e) {}
+}
 
 function photoURL(p) {
   if (!urlCache[p.id]) urlCache[p.id] = URL.createObjectURL(p.blob);
@@ -904,27 +985,55 @@ function revokeURL(id) {
   if (urlCache[id]) { try { URL.revokeObjectURL(urlCache[id]); } catch (e) {} delete urlCache[id]; }
 }
 
+/* 슬라이드쇼용 합쳐진 목록: 저장소(숨김 제외, order순) 먼저 + 로컬 */
+function visibleShowList() {
+  var list = [];
+  repoPhotos.forEach(function (rp) {
+    if (repoOv(rp.file).hidden) return;
+    list.push({ src: rp.file, caption: repoCaption(rp) });
+  });
+  photos.forEach(function (p) {
+    list.push({ src: photoURL(p), caption: p.caption || '' });
+  });
+  return list;
+}
+
+function makeThumb(src, caption, badge, dimmed, onTap) {
+  var cell = document.createElement('button');
+  cell.className = 'thumb' + (dimmed ? ' repo-hidden' : '');
+  var img = document.createElement('img');
+  img.src = src;
+  img.loading = 'lazy';
+  img.alt = '';
+  cell.appendChild(img);
+  if (badge) {
+    var b = document.createElement('span');
+    b.className = 'thumb-badge';
+    cell.appendChild(b);
+  }
+  var cap = document.createElement('div');   /* 캡션이 없어도 셀 높이 통일을 위해 항상 렌더 */
+  cap.className = 'thumb-cap';
+  cap.textContent = caption || '';
+  cell.appendChild(cap);
+  cell.addEventListener('click', onTap);
+  return cell;
+}
+
 function renderBoard() {
-  var empty = photos.length === 0;
+  var empty = repoPhotos.length + photos.length === 0;
   $('boardEmpty').hidden = !empty;
   $('boardScroll').style.display = empty ? 'none' : '';
-  $('playShowBtn').disabled = empty;
+  $('playShowBtn').disabled = visibleShowList().length === 0;
   var grid = $('boardGrid');
   grid.innerHTML = '';
+  /* 저장소 사진 먼저 (숨긴 것도 흐리게 표시해 해제할 수 있게) */
+  repoPhotos.forEach(function (rp) {
+    grid.appendChild(makeThumb(rp.file, repoCaption(rp), true, !!repoOv(rp.file).hidden,
+      function () { openRepoSheet(rp.file); }));
+  });
   photos.forEach(function (p) {
-    var cell = document.createElement('button');
-    cell.className = 'thumb';
-    var img = document.createElement('img');
-    img.src = photoURL(p);
-    img.loading = 'lazy';
-    img.alt = '';
-    cell.appendChild(img);
-    var cap = document.createElement('div');   /* 캡션이 없어도 셀 높이 통일을 위해 항상 렌더 */
-    cap.className = 'thumb-cap';
-    cap.textContent = p.caption || '';
-    cell.appendChild(cap);
-    cell.addEventListener('click', function () { openSheet(p.id); });
-    grid.appendChild(cell);
+    grid.appendChild(makeThumb(photoURL(p), p.caption, false, false,
+      function () { openSheet(p.id); }));
   });
 }
 
@@ -988,7 +1097,8 @@ $('photoInput').addEventListener('change', function () {
 });
 
 /* ---------- 사진 편집 시트 ---------- */
-var editingId = null;
+var editingId = null;        // 로컬 사진 id
+var editingRepoFile = null;  // 저장소 사진 file 경로
 var capSaveTimer = null;
 
 function findPhotoIdx(id) {
@@ -1000,9 +1110,28 @@ function openSheet(id) {
   var i = findPhotoIdx(id);
   if (i < 0) return;
   editingId = id;
+  editingRepoFile = null;
   $('sheetImg').src = photoURL(photos[i]);
   $('sheetCaption').value = photos[i].caption || '';
+  $('sheetHideRow').hidden = true;
+  $('sheetRepoNote').hidden = true;
+  $('sheetMoveRow').hidden = false;
+  $('sheetDelete').hidden = false;
   updateSheetNav();
+  $('sheetBackdrop').hidden = false;
+}
+function openRepoSheet(file) {
+  var rp = findRepo(file);
+  if (!rp) return;
+  editingRepoFile = file;
+  editingId = null;
+  $('sheetImg').src = file;
+  $('sheetCaption').value = repoCaption(rp);
+  $('sheetHideChk').checked = !!repoOv(file).hidden;
+  $('sheetHideRow').hidden = false;
+  $('sheetRepoNote').hidden = false;
+  $('sheetMoveRow').hidden = true;   /* 순서·삭제는 저장소에서 관리 */
+  $('sheetDelete').hidden = true;
   $('sheetBackdrop').hidden = false;
 }
 function updateSheetNav() {
@@ -1013,17 +1142,38 @@ function updateSheetNav() {
 function closeSheet() {
   if (capSaveTimer) { clearTimeout(capSaveTimer); capSaveTimer = null; flushCaption(); }
   editingId = null;
+  editingRepoFile = null;
   $('sheetBackdrop').hidden = true;
 }
+/* 저장소 사진 오버라이드 정리: 내용이 비면 키 삭제 */
+function setRepoOverride(file, patch) {
+  var ov = Object.assign({}, repoOverrides[file] || {}, patch);
+  if (ov.caption === undefined && !ov.hidden) delete repoOverrides[file];
+  else repoOverrides[file] = ov;
+  saveRepoOverrides();
+}
 function flushCaption() {
+  var v = $('sheetCaption').value.trim();
+  if (editingRepoFile) {
+    var rp = findRepo(editingRepoFile);
+    if (!rp) return;
+    if (repoCaption(rp) === v) return;
+    setRepoOverride(editingRepoFile, { caption: v === (rp.caption || '') ? undefined : v });
+    renderBoard();
+    return;
+  }
   var i = findPhotoIdx(editingId);
   if (i < 0) return;
-  var v = $('sheetCaption').value.trim();
   if (photos[i].caption === v) return;
   photos[i].caption = v;
   dbPut(photos[i]).catch(function () { alert('캡션 저장에 실패했어요.'); });
   renderBoard();
 }
+$('sheetHideChk').addEventListener('change', function () {
+  if (!editingRepoFile) return;
+  setRepoOverride(editingRepoFile, { hidden: this.checked ? true : undefined });
+  renderBoard();
+});
 $('sheetCaption').addEventListener('input', function () {
   if (capSaveTimer) clearTimeout(capSaveTimer);
   capSaveTimer = setTimeout(function () { capSaveTimer = null; flushCaption(); }, 300);
@@ -1062,7 +1212,8 @@ $('sheetBackdrop').addEventListener('click', function (e) {
 var ss = { on: false, idx: 0, timer: null, capTimer: null, active: 0, wake: null };
 
 function startShow() {
-  if (!photos.length) return;
+  ss.list = visibleShowList();   // 저장소(숨김 제외) + 로컬 합쳐진 목록
+  if (!ss.list.length) return;
   ss.on = true; ss.idx = 0; ss.active = 0;
   $('slideshow').hidden = false;
   $('slideControls').hidden = true;
@@ -1078,13 +1229,13 @@ function startShow() {
 function renderSlide() {
   if (ss.timer) clearTimeout(ss.timer);
   if (ss.capTimer) clearTimeout(ss.capTimer);
-  var p = photos[ss.idx];
+  var p = (ss.list || [])[ss.idx];
   if (!p) { endShow(); return; }
   var layers = [$('slideA'), $('slideB')];
   var outgoing = layers[ss.active];
   ss.active ^= 1;
   var incoming = layers[ss.active];
-  incoming.src = photoURL(p);
+  incoming.src = p.src;
   incoming.classList.remove('kb0', 'kb1', 'show');
   void incoming.offsetWidth; // 켄번즈 애니메이션 재시작
   incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
@@ -1103,7 +1254,7 @@ function renderSlide() {
   var start = Date.now();
   var advance = function () {
     if (tok !== ss.token || !ss.on) return;
-    if (ss.idx < photos.length - 1) { ss.idx++; renderSlide(); }
+    if (ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
     else endShow();
   };
   if (settings.slideTts && p.caption && ttsOK()) {
@@ -1151,7 +1302,7 @@ $('ssPrev').addEventListener('click', function (e) {
 });
 $('ssNext').addEventListener('click', function (e) {
   e.stopPropagation();
-  if (ss.idx < photos.length - 1) { ss.idx++; renderSlide(); }
+  if (ss.list && ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
   else endShow();
 });
 
@@ -1247,8 +1398,10 @@ function switchTab(name) {
 var settingsSnapshot = { morning: '', reasons: '' };
 
 function openSettings() {
-  $('taMorning').value = sentences.morning.join('\n');
-  $('taReasons').value = sentences.reasons.join('\n');
+  var eff = effectiveSentences();   /* 로컬이 비어 있으면 저장소 기본 문장을 보여줌 */
+  $('taMorning').value = eff.morning.join('\n');
+  $('taReasons').value = eff.reasons.join('\n');
+  $('repoSentencesNote').hidden = !usingRepoSentences();
   settingsSnapshot.morning = $('taMorning').value;
   settingsSnapshot.reasons = $('taReasons').value;
   $('savedMsg').hidden = true;
@@ -1278,9 +1431,10 @@ $('saveSentencesBtn').addEventListener('click', function () {
   settingsSnapshot.morning = $('taMorning').value;
   settingsSnapshot.reasons = $('taReasons').value;
   stopPlay();
-  if (recite.set === 'reasons' && sentences.reasons.length === 0) recite.set = 'morning';
+  if (recite.set === 'reasons' && effectiveSentences().reasons.length === 0) recite.set = 'morning';
   recite.idx = 0; recite.done = false;
   renderRecite();
+  $('repoSentencesNote').hidden = !usingRepoSentences();
   var m = $('savedMsg');
   m.hidden = false;
   setTimeout(function () { m.hidden = true; }, 2000);
@@ -1349,7 +1503,8 @@ $('exportBtn').addEventListener('click', async function () {
       exportedAt: new Date().toISOString(),
       sentences: sentences,
       records: records,
-      settings: settings
+      settings: settings,
+      repoOverrides: repoOverrides   /* 저장소 사진 로컬 오버라이드 (사진 자체는 저장소에서 관리) */
     };
     if (settings.exportPhotos && photos.length) {
       data.photos = [];
@@ -1441,9 +1596,12 @@ async function importData(file) {
     };
     records = data.records;
     settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
+    repoOverrides = (data.repoOverrides && typeof data.repoOverrides === 'object' && !Array.isArray(data.repoOverrides))
+      ? data.repoOverrides : {};
     LS.set('aff.sentences', sentences);
     LS.set('aff.records', records);
     LS.set('aff.settings', settings);
+    LS.set('aff.repoOverrides', repoOverrides);
     LS.set('aff.v', 1);
 
     stopPlay();
@@ -1485,6 +1643,9 @@ dbGetAll().then(function (list) {
   photos = [];
   renderBoard();
 });
+
+loadRepoPhotos();      // 저장소 공용 사진 목록 (photos.json 없으면 조용히 무시)
+loadRepoSentences();   // 저장소 공용 문장 (sentences.json 없으면 조용히 무시)
 
 /* 서비스워커 (https 또는 localhost에서만) */
 if ('serviceWorker' in navigator &&
