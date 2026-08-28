@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow, noarchive"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="매일 확언"/>
+<meta name="theme-color" content="#141414"/>
+<title>매일 확언</title>
+<link rel="apple-touch-icon" href="icon.png"/>
+<link rel="icon" href="icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #141414;
+    --surface: #1d1d1d;
+    --surface2: #272727;
+    --border: #303030;
+    --accent: #f5c542;
+    --accent-dim: rgba(245,197,66,0.14);
+    --text: #efece4;
+    --text-dim: #8d8d8d;
+    --text-muted: #5c5c5c;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --sans: 'Noto Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+    --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body { height: 100%; }
+
+  body {
+    background: #0d0d0d;   /* 바깥 배경: --bg보다 살짝 어둡게 (PC 폭 제한 시 보임) */
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  /* 모바일·PC 동일 폭: 앱 전체를 max-width 520px 중앙 정렬 */
+  .header, main, .tabbar {
+    width: 100%;
+    max-width: 520px;
+    background: var(--bg);
+  }
+
+  button { font-family: inherit; color: inherit; }
+
+  /* TTS 미지원이면 관련 UI 전부 숨김 */
+  body:not(.tts-on) .tts-only { display: none !important; }
+
+  /* ---------- 헤더 ---------- */
+  .header {
+    padding: calc(16px + env(safe-area-inset-top)) 22px 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .header-title span { color: var(--accent); }
+  .icon-btn {
+    width: 38px; height: 38px; border: none; background: none;
+    display: grid; place-items: center; cursor: pointer;
+    color: var(--text-dim); border-radius: 50%;
+  }
+  .icon-btn:active { background: var(--surface2); }
+  .icon-btn svg { width: 21px; height: 21px; }
+
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .tabc { display: none; flex: 1; flex-direction: column; min-height: 0; }
+  .tabc.active { display: flex; animation: fadein 0.22s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- 하단 탭바 ---------- */
+  .tabbar {
+    display: flex; flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbtn {
+    flex: 1; padding: 9px 0 7px; border: none; background: none;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--text-muted); font-size: 11px; font-weight: 500; cursor: pointer;
+  }
+  .tabbtn.active { color: var(--accent); }
+  .tabbtn svg { width: 22px; height: 22px; }
+
+  /* ---------- 낭송 탭 ---------- */
+  .recite-empty, .recite-done {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 30px 28px; gap: 10px;
+  }
+  .empty-title { font-size: 20px; font-weight: 700; }
+  .empty-sub { font-size: 14px; color: var(--text-dim); max-width: 300px; }
+
+  .recite-area {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 24px 28px; cursor: pointer; user-select: none; -webkit-user-select: none;
+  }
+  .recite-progress {
+    font-size: 13px; color: var(--text-dim); letter-spacing: 3px; margin-bottom: 30px;
+    font-variant-numeric: tabular-nums;
+  }
+  .recite-sentence {
+    font-family: var(--serif);
+    font-size: 29px; font-weight: 600; line-height: 1.7;
+    letter-spacing: -0.3px; max-width: 560px;
+  }
+  .recite-sentence.sz-m { font-size: 24px; }
+  .recite-sentence.sz-s { font-size: 20px; }
+  .recite-hint { font-size: 13px; color: var(--text-dim); margin-top: 26px; min-height: 20px; }
+
+  .done-sun { width: 66px; height: 44px; margin-bottom: 6px; }
+  .done-big { font-size: 24px; font-weight: 700; }
+  .done-date { font-size: 15px; color: var(--accent); }
+  .done-note { font-size: 13px; color: var(--text-dim); }
+
+  .recite-controls {
+    flex-shrink: 0; padding: 6px 22px 14px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .rate-presets { display: flex; gap: 5px; margin-right: 4px; }
+  .rate-btn {
+    padding: 7px 11px; font-size: 12px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-dim); cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .rate-btn.on { color: #000; background: var(--accent); border-color: var(--accent); }
+  .ctl-btn {
+    padding: 10px 20px; font-size: 14px; font-weight: 700;
+    border: none; border-radius: var(--radius-sm); cursor: pointer;
+    background: var(--accent); color: #000;
+  }
+  .ctl-btn.ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .ctl-btn:active { transform: scale(0.97); }
+
+  .reasons-bar {
+    flex-shrink: 0; margin: 0 20px 14px;
+    padding: 13px; font-size: 14px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text-dim); cursor: pointer;
+  }
+  .reasons-bar.back { color: var(--accent); border-color: var(--accent-dim); }
+
+  .btn {
+    width: 100%; padding: 16px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: #000;
+    font-size: 15px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+  }
+  .btn:active { transform: scale(0.985); }
+  .btn.ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn.small { width: auto; padding: 12px 26px; font-size: 14px; margin-top: 8px; }
+
+  /* ---------- 비전보드 탭 ---------- */
+  .board-top {
+    flex-shrink: 0; padding: 4px 20px 12px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .board-top .ctl-btn { padding: 9px 16px; }
+  .ctl-btn:disabled { opacity: 0.35; transform: none; cursor: default; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; color: var(--text-dim); cursor: pointer; user-select: none;
+  }
+  .toggle input { appearance: none; -webkit-appearance: none; width: 38px; height: 23px; border-radius: 23px;
+    background: var(--surface2); border: 1px solid var(--border); position: relative; cursor: pointer; flex-shrink: 0; }
+  .toggle input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+    border-radius: 50%; background: var(--text-dim); transition: all 0.18s; }
+  .toggle input:checked { background: var(--accent-dim); border-color: var(--accent); }
+  .toggle input:checked::after { left: 17px; background: var(--accent); }
+
+  .board-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
+  .board-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding: 2px 20px 24px;
+  }
+  .thumb {
+    border: 1px solid var(--border); background: var(--surface);
+    border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
+    padding: 0; text-align: left; display: block;
+  }
+  .thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
+  .thumb-cap {
+    padding: 7px 10px; font-size: 12px; color: var(--text-dim); line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-height: 31px;   /* 캡션 유무와 무관하게 셀 높이 통일 */
+  }
+  .board-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 30px 28px; gap: 10px;
+  }
+
+  /* ---------- 기록 탭 ---------- */
+  .record-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 20px 24px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 12px;
+  }
+  .card-label { font-size: 12px; color: var(--text-dim); letter-spacing: 0.5px; margin-bottom: 10px; }
+  .check-row {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    padding: 11px 4px; border: none; background: none; cursor: pointer;
+    font-size: 16px; font-weight: 500; text-align: left;
+  }
+  .check-row + .check-row { border-top: 1px solid var(--border); }
+  .chk {
+    width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+    border: 1.5px solid var(--border); background: var(--surface2);
+    display: grid; place-items: center; transition: all 0.15s;
+  }
+  .chk svg { width: 15px; height: 15px; opacity: 0; }
+  .check-row.on .chk { background: var(--accent); border-color: var(--accent); }
+  .check-row.on .chk svg { opacity: 1; }
+  .streak-row { display: flex; align-items: baseline; gap: 10px; }
+  .streak-num { font-family: var(--serif); font-size: 40px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .streak-unit { font-size: 16px; color: var(--text); }
+  .streak-note { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+  .week-head, .hist-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .week-head span { text-align: center; font-size: 11px; color: var(--text-muted); }
+  .hist-grid { margin-top: 6px; }
+  .hcell {
+    aspect-ratio: 1; border-radius: 7px;
+    background: var(--surface2); border: 1px solid transparent;
+    display: grid; place-items: center; position: relative;
+  }
+  .hcell.done { background: var(--accent); }
+  .hcell.future { background: transparent; border-color: var(--border); opacity: 0.4; }
+  .hcell.today { border-color: var(--accent); border-width: 1.5px; }
+  .hcell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-dim); }
+  .hcell.done .dot { background: #000; }
+  .legend { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+
+  /* ---------- 설정 화면 ---------- */
+  .settings {
+    position: fixed; inset: 0; z-index: 40;
+    max-width: 520px; margin: 0 auto;   /* 본문과 같은 폭으로 중앙 정렬 */
+    background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  .settings[hidden] { display: none; }
+  .settings-body {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 4px 22px calc(30px + env(safe-area-inset-bottom));
+  }
+  .settings-body h2 {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    letter-spacing: 1px; margin: 26px 0 12px;
+  }
+  .settings-body h2:first-child { margin-top: 6px; }
+  .field-label { display: block; font-size: 13px; color: var(--text-dim); margin: 14px 0 6px; }
+  textarea, input[type="text"], select {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: inherit; font-size: 15px; line-height: 1.7;
+  }
+  textarea { resize: vertical; min-height: 120px; }
+  textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); }
+  select { appearance: none; -webkit-appearance: none; }
+  .settings .btn { margin-top: 14px; }
+  .saved-msg { font-size: 13px; color: var(--accent); margin-top: 8px; text-align: center; }
+  .rate-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  .rate-val { font-size: 14px; color: var(--accent); width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .hint-line { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+
+  /* ---------- 사진 편집 시트 ---------- */
+  .backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: flex-end;
+  }
+  .backdrop[hidden] { display: none; }
+  .sheet {
+    width: 100%; max-width: 520px; margin: 0 auto;
+    background: var(--surface);
+    border-radius: 18px 18px 0 0; border-top: 1px solid var(--border);
+    padding: 18px 20px calc(20px + env(safe-area-inset-bottom));
+    animation: sheetup 0.22s ease;
+  }
+  @keyframes sheetup { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet-img { width: 100%; max-height: 200px; object-fit: contain; border-radius: var(--radius-sm); background: #000; display: block; margin-bottom: 12px; }
+  .sheet-row { display: flex; gap: 8px; margin-top: 10px; }
+  .sheet-row .ctl-btn { flex: 1; padding: 13px; }
+  .ctl-btn.danger { background: var(--surface2); color: #f07070; border: 1px solid var(--border); }
+
+  /* ---------- 슬라이드쇼 ---------- */
+  .slideshow {
+    position: fixed; inset: 0; z-index: 60;
+    width: 100vw; height: 100dvh; background: #000;
+    overflow: hidden;
+  }
+  .slideshow[hidden] { display: none; }
+  .slide-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity 1s ease;
+    will-change: transform, opacity;
+  }
+  .slide-img.show { opacity: 1; }
+  .slide-img.kb0 { animation: kb0 9.5s ease-out forwards; }
+  .slide-img.kb1 { animation: kb1 9.5s ease-out forwards; }
+  @keyframes kb0 { from { transform: scale(1) translate(0,0); } to { transform: scale(1.08) translate(1.4%, -0.9%); } }
+  @keyframes kb1 { from { transform: scale(1.02) translate(0.8%, 0.5%); } to { transform: scale(1.1) translate(-0.8%, -0.5%); } }
+  .slide-caption {
+    position: absolute; left: 24px; right: 24px;
+    bottom: calc(40px + env(safe-area-inset-bottom));
+    text-align: center; font-family: var(--serif);
+    font-size: 21px; font-weight: 600; line-height: 1.6; color: #fff;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.85);
+    opacity: 0; transition: opacity 0.9s ease; pointer-events: none;
+  }
+  .slide-caption.show { opacity: 1; }
+  .slide-controls {
+    position: absolute; left: 0; right: 0;
+    bottom: calc(90px + env(safe-area-inset-bottom));
+    display: flex; justify-content: center; gap: 12px;
+  }
+  .slide-controls[hidden] { display: none; }
+  .slide-controls button {
+    padding: 12px 22px; font-size: 14px; font-weight: 700;
+    background: rgba(30,30,30,0.85); color: var(--text);
+    border: 1px solid var(--border); border-radius: 24px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-title">매일 <span>확언</span></div>
+  <button class="icon-btn" id="gearBtn" aria-label="설정">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01A1.7 1.7 0 0 0 20.91 10H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03z"/></svg>
+  </button>
+</header>
+
+<main>
+  <!-- 낭송 탭 -->
+  <section class="tabc active" id="tab-recite">
+    <div class="recite-empty" id="reciteEmpty" hidden>
+      <p class="empty-title">아직 아침 확언이 없어요</p>
+      <p class="empty-sub">설정에서 문장을 한 줄에 하나씩 입력하면 여기서 낭송할 수 있어요.</p>
+      <button class="btn small" id="goSettingsBtn">설정에서 입력</button>
+    </div>
+
+    <div class="recite-area" id="reciteArea" hidden>
+      <div class="recite-progress" id="reciteProgress"></div>
+      <div class="recite-sentence" id="reciteSentence"></div>
+      <div class="recite-hint" id="reciteHint"></div>
+    </div>
+
+    <div class="recite-done" id="reciteDone" hidden>
+      <svg class="done-sun" viewBox="0 0 66 44" fill="none">
+        <path d="M12 38 A21 21 0 0 1 54 38 Z" fill="#f5c542"/>
+        <line x1="3" y1="38" x2="63" y2="38" stroke="#f5c542" stroke-width="3.5" stroke-linecap="round"/>
+      </svg>
+      <div class="done-big" id="doneBig">오늘 낭송을 마쳤어요</div>
+      <div class="done-date" id="doneDate"></div>
+      <div class="done-note" id="doneNote">기록에 "아침 낭송" 체크를 남겼어요</div>
+      <button class="btn ghost small" id="againBtn">다시 읽기</button>
+      <button class="btn ghost small" id="backToMorningBtn" hidden>아침 확언으로</button>
+    </div>
+
+    <div class="recite-controls tts-only" id="reciteControls">
+      <div class="rate-presets">
+        <button class="rate-btn" data-rate="0.8">0.8</button>
+        <button class="rate-btn" data-rate="1.0">1.0</button>
+        <button class="rate-btn" data-rate="1.2">1.2</button>
+      </div>
+      <button class="ctl-btn" id="playBtn">자동 낭독</button>
+      <button class="ctl-btn ghost" id="stopBtn" hidden>정지</button>
+    </div>
+
+    <button class="reasons-bar" id="reasonsBar" hidden>지칠 때 읽는 이유</button>
+  </section>
+
+  <!-- 비전보드 탭 -->
+  <section class="tabc" id="tab-board">
+    <div class="board-top">
+      <button class="ctl-btn ghost" id="addPhotoBtn">사진 추가</button>
+      <button class="ctl-btn" id="playShowBtn">재생</button>
+      <label class="toggle tts-only"><input type="checkbox" id="slideTtsChk"><span>문장 읽어주기</span></label>
+    </div>
+    <div class="board-empty" id="boardEmpty" hidden>
+      <p class="empty-title">비전보드가 비어 있어요</p>
+      <p class="empty-sub">이루고 싶은 모습이 담긴 사진을 추가해 보세요. 사진마다 문장을 붙일 수 있어요.</p>
+      <button class="btn small" id="bigAddBtn">사진 추가</button>
+    </div>
+    <div class="board-scroll" id="boardScroll">
+      <div class="board-grid" id="boardGrid"></div>
+    </div>
+  </section>
+
+  <!-- 기록 탭 -->
+  <section class="tabc" id="tab-record">
+    <div class="record-scroll">
+      <div class="card">
+        <div class="card-label" id="todayLabel"></div>
+        <button class="check-row" id="chkRecite">
+          <span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></span>
+          <span>아침 낭송</span>
+        </button>
+        <button class="check-row" id="chkAction">
+          <span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></span>
+          <span>5분 실행</span>
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-label">연속 낭송</div>
+        <div class="streak-row"><span class="streak-num" id="streakNum">0</span><span class="streak-unit">일</span></div>
+        <div class="streak-note" id="streakNote"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">최근 4주</div>
+        <div class="week-head"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
+        <div class="hist-grid" id="histGrid"></div>
+        <div class="legend">칸 채움 = 아침 낭송 · 점 = 5분 실행</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button class="tabbtn active" data-tab="recite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 11h16M4 16h9"/></svg>
+    <span>낭송</span>
+  </button>
+  <button class="tabbtn" data-tab="board">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.5"/></svg>
+    <span>비전보드</span>
+  </button>
+  <button class="tabbtn" data-tab="record">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    <span>기록</span>
+  </button>
+</nav>
+
+<!-- 설정 화면 -->
+<section class="settings" id="settingsScreen" hidden>
+  <header class="header">
+    <button class="icon-btn" id="settingsBack" aria-label="뒤로">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="header-title">설정</div>
+    <div style="width:38px"></div>
+  </header>
+  <div class="settings-body">
+    <h2>문장</h2>
+    <label class="field-label" for="taMorning">아침 확언 — 한 줄에 한 문장</label>
+    <textarea id="taMorning" rows="8" placeholder="나는 매일 조금씩 나아지고 있다&#10;나는 내 시간의 주인이다"></textarea>
+    <label class="field-label" for="taReasons">지칠 때 읽는 이유 — 비워두면 낭송 탭에서 숨겨져요</label>
+    <textarea id="taReasons" rows="5" placeholder="이걸 시작한 이유를 적어두세요"></textarea>
+    <button class="btn" id="saveSentencesBtn">문장 저장</button>
+    <p class="saved-msg" id="savedMsg" hidden>저장했어요</p>
+
+    <div class="tts-only">
+      <h2>음성</h2>
+      <label class="field-label" for="voiceSel">목소리</label>
+      <select id="voiceSel"></select>
+      <div class="set-row">
+        <label class="toggle"><input type="checkbox" id="voiceAllChk"><span>한국어 외 음성도 보기</span></label>
+      </div>
+      <label class="field-label">속도</label>
+      <div class="rate-row">
+        <input type="range" id="rateSlider" min="0.5" max="1.5" step="0.1" value="1.0">
+        <span class="rate-val" id="rateVal">1.0</span>
+      </div>
+      <button class="btn ghost" id="previewBtn">미리 듣기</button>
+    </div>
+
+    <h2>데이터</h2>
+    <div class="set-row">
+      <label class="toggle"><input type="checkbox" id="exportPhotosChk"><span>내보내기에 사진 포함</span></label>
+    </div>
+    <button class="btn ghost" id="exportBtn">JSON 내보내기</button>
+    <button class="btn ghost" id="importBtn">JSON 가져오기</button>
+    <p class="hint-line">내보내기 파일이 유일한 백업이에요. 기기를 바꾸거나 앱 데이터가 지워질 수 있으니 가끔 저장해 두세요.</p>
+  </div>
+</section>
+
+<!-- 사진 편집 시트 -->
+<div class="backdrop" id="sheetBackdrop" hidden>
+  <div class="sheet" id="editSheet">
+    <img class="sheet-img" id="sheetImg" alt="">
+    <input type="text" id="sheetCaption" placeholder="캡션 — 슬라이드쇼에서 읽어줄 문장" maxlength="120">
+    <div class="sheet-row">
+      <button class="ctl-btn ghost" id="sheetLeft">&#9664; 앞으로</button>
+      <button class="ctl-btn ghost" id="sheetRight">뒤로 &#9654;</button>
+    </div>
+    <div class="sheet-row">
+      <button class="ctl-btn danger" id="sheetDelete">삭제</button>
+      <button class="ctl-btn ghost" id="sheetClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 슬라이드쇼 -->
+<div class="slideshow" id="slideshow" hidden>
+  <img class="slide-img" id="slideA" alt="">
+  <img class="slide-img" id="slideB" alt="">
+  <div class="slide-caption" id="slideCaption"></div>
+  <div class="slide-controls" id="slideControls" hidden>
+    <button id="ssPrev">이전</button>
+    <button id="ssClose">닫기</button>
+    <button id="ssNext">다음</button>
+  </div>
+</div>
+
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
+<input type="file" id="importInput" accept="application/json,.json" hidden>
+
+<script>
+'use strict';
+/* =====================================================
+   매일 확언 — 단일 파일 웹앱
+   데이터: localStorage(aff.*) + IndexedDB(aff-photos)
+   ===================================================== */
+
+var $ = function (id) { return document.getElementById(id); };
+
+/* ---------- 저장소 ---------- */
+var LS = {
+  get: function (k, def) {
+    try { var v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); }
+    catch (e) { return def; }
+  },
+  set: function (k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+  }
+};
+
+var DEFAULT_SETTINGS = { voiceURI: '', rate: 1.0, slideTts: true, exportPhotos: true };
+
+var sentences = LS.get('aff.sentences', { morning: [], reasons: [] });
+if (!sentences || typeof sentences !== 'object') sentences = { morning: [], reasons: [] };
+if (!Array.isArray(sentences.morning)) sentences.morning = [];
+if (!Array.isArray(sentences.reasons)) sentences.reasons = [];
+
+var records = LS.get('aff.records', {});
+if (!records || typeof records !== 'object') records = {};
+
+var settings = Object.assign({}, DEFAULT_SETTINGS, LS.get('aff.settings', {}));
+LS.set('aff.v', 1);
+
+function saveSettings() { LS.set('aff.settings', settings); }
+
+function uuid() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+/* ---------- 날짜 ---------- */
+function dateKey(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+function todayKey() { return dateKey(new Date()); }
+function formatToday() {
+  try {
+    return new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  } catch (e) { return todayKey(); }
+}
+
+/* ---------- TTS ---------- */
+var ttsSupported = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+var voices = [];
+var currentUtter = null;   // GC 버그 대응 전역 참조
+var utterTimeout = null;
+var ttsPrimed = false;
+
+function loadVoices() {
+  if (!ttsSupported) return;
+  try { voices = speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
+  if (voices.length) {
+    document.body.classList.add('tts-on');
+    populateVoices();
+  }
+}
+if (ttsSupported) {
+  loadVoices();
+  try { speechSynthesis.addEventListener('voiceschanged', loadVoices); }
+  catch (e) { speechSynthesis.onvoiceschanged = loadVoices; }
+  var vTries = 0;
+  var vIv = setInterval(function () {
+    if (voices.length || ++vTries > 10) { clearInterval(vIv); return; }
+    loadVoices();
+  }, 500);
+}
+function ttsOK() { return ttsSupported && voices.length > 0; }
+
+function pickVoice() {
+  if (settings.voiceURI) {
+    for (var i = 0; i < voices.length; i++) if (voices[i].voiceURI === settings.voiceURI) return voices[i];
+  }
+  for (var j = 0; j < voices.length; j++) {
+    if (voices[j].lang && voices[j].lang.toLowerCase().indexOf('ko') === 0) return voices[j];
+  }
+  for (var k = 0; k < voices.length; k++) if (voices[k].default) return voices[k];
+  return null;
+}
+
+function ttsCancel() {
+  if (utterTimeout) { clearTimeout(utterTimeout); utterTimeout = null; }
+  if (currentUtter) currentUtter._dead = true;
+  try { speechSynthesis.cancel(); } catch (e) {}
+}
+
+/* onDone은 onend 또는 문장 길이 기반 타임아웃 중 먼저 온 쪽에서 한 번만 호출 */
+function ttsSpeak(text, onDone) {
+  if (!ttsOK()) { if (onDone) onDone(); return; }
+  ttsCancel();
+  var u = new SpeechSynthesisUtterance(text);
+  currentUtter = u;
+  var v = pickVoice();
+  if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'ko-KR'; }
+  u.rate = settings.rate || 1.0;
+  var called = false;
+  var finish = function () {
+    if (called || u._dead) return;
+    called = true;
+    if (utterTimeout) { clearTimeout(utterTimeout); utterTimeout = null; }
+    if (onDone) onDone();
+  };
+  u.onend = finish;
+  u.onerror = finish;
+  var ms = Math.max(4000, (text.length * 350) / (u.rate || 1) + 3000);
+  utterTimeout = setTimeout(finish, ms);
+  try { speechSynthesis.speak(u); } catch (e) { finish(); }
+}
+
+/* iOS: 첫 speak는 제스처 안이어야 함 — 제스처 시점에 무음 발화로 잠금 해제 */
+function primeTts() {
+  if (ttsPrimed || !ttsOK()) return;
+  try {
+    var u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    ttsPrimed = true;
+  } catch (e) {}
+}
+
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') {
+    if (recite.playing) stopPlay();
+    if (ss.on) pauseShow();   // 슬라이드쇼: 현재 장에서 정지, 복귀 시 자동 재개 안 함
+    ttsCancel();
+  }
+});
+
+/* ---------- 낭송 탭 ---------- */
+var recite = { set: 'morning', idx: 0, done: false, playing: false, paused: false };
+var advanceTimer = null;
+
+function reciteList() { return sentences[recite.set] || []; }
+
+function sizeClass(t) {
+  if (!t) return '';
+  if (t.length > 60) return 'sz-s';
+  if (t.length > 34) return 'sz-m';
+  return '';
+}
+
+function renderRecite() {
+  var arr = reciteList();
+  var morningEmpty = sentences.morning.length === 0;
+  var hasReasons = sentences.reasons.length > 0;
+
+  $('reasonsBar').hidden = !hasReasons;
+  $('reasonsBar').textContent = recite.set === 'reasons' ? '아침 확언으로 돌아가기' : '지칠 때 읽는 이유';
+  $('reasonsBar').classList.toggle('back', recite.set === 'reasons');
+
+  if (recite.set === 'morning' && morningEmpty) {
+    $('reciteEmpty').hidden = false;
+    $('reciteArea').hidden = true;
+    $('reciteDone').hidden = true;
+    $('reciteControls').style.display = 'none';
+    return;
+  }
+  $('reciteEmpty').hidden = true;
+
+  if (recite.done) {
+    $('reciteArea').hidden = true;
+    $('reciteDone').hidden = false;
+    $('reciteControls').style.display = 'none';
+    $('doneBig').textContent = recite.set === 'morning' ? '오늘 낭송을 마쳤어요' : '끝까지 읽었어요';
+    $('doneDate').textContent = formatToday();
+    $('doneNote').hidden = recite.set !== 'morning';
+    $('backToMorningBtn').hidden = recite.set !== 'reasons';
+  } else {
+    $('reciteArea').hidden = false;
+    $('reciteDone').hidden = true;
+    $('reciteControls').style.display = '';
+    $('reciteProgress').textContent = (recite.idx + 1) + ' / ' + arr.length;
+    var t = arr[recite.idx] || '';
+    var el = $('reciteSentence');
+    el.textContent = t;
+    el.className = 'recite-sentence ' + sizeClass(t);
+  }
+  updatePlayUI();
+}
+
+function updatePlayUI() {
+  $('playBtn').hidden = recite.playing;
+  $('stopBtn').hidden = !recite.playing;
+  var hint = '';
+  if (recite.playing) hint = recite.paused ? '일시정지 — 화면을 탭하면 이어서 읽어요' : '화면을 탭하면 일시정지';
+  $('reciteHint').textContent = hint;
+  var btns = document.querySelectorAll('.rate-btn');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle('on', Math.abs(parseFloat(btns[i].dataset.rate) - settings.rate) < 0.01);
+  }
+}
+
+function completeSet() {
+  recite.done = true;
+  if (recite.set === 'morning') {
+    var k = todayKey();
+    var r = records[k] || { recite: false, action: false };
+    r.recite = true;  // 이미 체크면 유지
+    records[k] = r;
+    LS.set('aff.records', records);
+    renderRecord();
+  }
+  renderRecite();
+}
+
+function reciteNext() {
+  var arr = reciteList();
+  if (recite.done) return;
+  if (recite.idx < arr.length - 1) { recite.idx++; renderRecite(); }
+  else completeSet();
+}
+function recitePrev() {
+  if (recite.done) { recite.done = false; renderRecite(); return; }
+  if (recite.idx > 0) { recite.idx--; renderRecite(); }
+}
+
+/* 수동 진행: 오른쪽 2/3 = 다음, 왼쪽 1/3 = 이전 / 재생 중에는 탭 = 일시정지 토글 */
+$('reciteArea').addEventListener('click', function (e) {
+  if (recite.playing) { togglePause(); return; }
+  var rect = this.getBoundingClientRect();
+  var x = e.clientX - rect.left;
+  if (x < rect.width / 3) recitePrev(); else reciteNext();
+});
+
+/* 스와이프 */
+(function () {
+  var sx = 0, sy = 0, st = 0;
+  var area = $('reciteArea');
+  area.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+  }, { passive: true });
+  area.addEventListener('touchend', function (e) {
+    if (recite.playing) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Date.now() - st > 800) return;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (dx < 0) reciteNext(); else recitePrev();
+    }
+  }, { passive: true });
+})();
+
+/* 자동 낭독 */
+function startPlay() {
+  if (!ttsOK() || reciteList().length === 0) return;
+  primeTts();
+  if (recite.done) { recite.done = false; recite.idx = 0; }
+  recite.playing = true;
+  recite.paused = false;
+  renderRecite();
+  speakCurrent();
+}
+
+function speakCurrent() {
+  var arr = reciteList();
+  var text = arr[recite.idx];
+  if (text == null) { stopPlay(); return; }
+  ttsSpeak(text, function () {
+    if (!recite.playing || recite.paused) return;
+    advanceTimer = setTimeout(function () {
+      if (!recite.playing || recite.paused) return;
+      if (recite.idx < arr.length - 1) {
+        recite.idx++;
+        renderRecite();
+        speakCurrent();
+      } else {
+        recite.playing = false;
+        recite.paused = false;
+        completeSet();
+      }
+    }, 1000);
+  });
+}
+
+function togglePause() {
+  if (!recite.playing) return;
+  if (recite.paused) {
+    recite.paused = false;
+    speakCurrent();          // 현재 문장 처음부터 재개 (제스처 안)
+  } else {
+    recite.paused = true;
+    if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
+    ttsCancel();
+  }
+  updatePlayUI();
+}
+
+function stopPlay() {
+  recite.playing = false;
+  recite.paused = false;
+  if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
+  ttsCancel();
+  updatePlayUI();
+}
+
+$('playBtn').addEventListener('click', startPlay);
+$('stopBtn').addEventListener('click', function (e) { e.stopPropagation(); stopPlay(); });
+
+document.querySelectorAll('.rate-btn').forEach(function (b) {
+  b.addEventListener('click', function (e) {
+    e.stopPropagation();
+    settings.rate = parseFloat(b.dataset.rate);
+    saveSettings();
+    $('rateSlider').value = settings.rate;
+    $('rateVal').textContent = settings.rate.toFixed(1);
+    updatePlayUI();
+  });
+});
+
+$('againBtn').addEventListener('click', function () {
+  recite.done = false; recite.idx = 0; renderRecite();
+});
+$('backToMorningBtn').addEventListener('click', function () { switchSet('morning'); });
+$('reasonsBar').addEventListener('click', function () {
+  switchSet(recite.set === 'morning' ? 'reasons' : 'morning');
+});
+function switchSet(s) {
+  stopPlay();
+  recite.set = s; recite.idx = 0; recite.done = false;
+  renderRecite();
+}
+$('goSettingsBtn').addEventListener('click', openSettings);
+
+/* ---------- IndexedDB (사진) ---------- */
+var dbPromise = null;
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise(function (res, rej) {
+    if (!window.indexedDB) { rej(new Error('no idb')); return; }
+    var req = indexedDB.open('aff-photos', 1);
+    req.onupgradeneeded = function () {
+      var db = req.result;
+      var st = db.createObjectStore('photos', { keyPath: 'id' });
+      st.createIndex('order', 'order');
+    };
+    req.onsuccess = function () { res(req.result); };
+    req.onerror = function () { rej(req.error); };
+  });
+  return dbPromise;
+}
+function idbTx(mode, fn) {
+  return openDB().then(function (db) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction('photos', mode);
+      var req = fn(tx.objectStore('photos'));
+      tx.oncomplete = function () { res(req ? req.result : undefined); };
+      tx.onerror = function () { rej(tx.error); };
+      tx.onabort = function () { rej(tx.error || new Error('abort')); };
+    });
+  });
+}
+function dbGetAll() { return idbTx('readonly', function (st) { return st.getAll(); }); }
+function dbPut(rec) { return idbTx('readwrite', function (st) { return st.put(rec); }); }
+function dbDelete(id) { return idbTx('readwrite', function (st) { return st.delete(id); }); }
+function dbClear() { return idbTx('readwrite', function (st) { return st.clear(); }); }
+
+/* ---------- 비전보드 ---------- */
+var photos = [];
+var urlCache = {};
+
+function photoURL(p) {
+  if (!urlCache[p.id]) urlCache[p.id] = URL.createObjectURL(p.blob);
+  return urlCache[p.id];
+}
+function revokeURL(id) {
+  if (urlCache[id]) { try { URL.revokeObjectURL(urlCache[id]); } catch (e) {} delete urlCache[id]; }
+}
+
+function renderBoard() {
+  var empty = photos.length === 0;
+  $('boardEmpty').hidden = !empty;
+  $('boardScroll').style.display = empty ? 'none' : '';
+  $('playShowBtn').disabled = empty;
+  var grid = $('boardGrid');
+  grid.innerHTML = '';
+  photos.forEach(function (p) {
+    var cell = document.createElement('button');
+    cell.className = 'thumb';
+    var img = document.createElement('img');
+    img.src = photoURL(p);
+    img.loading = 'lazy';
+    img.alt = '';
+    cell.appendChild(img);
+    var cap = document.createElement('div');   /* 캡션이 없어도 셀 높이 통일을 위해 항상 렌더 */
+    cap.className = 'thumb-cap';
+    cap.textContent = p.caption || '';
+    cell.appendChild(cap);
+    cell.addEventListener('click', function () { openSheet(p.id); });
+    grid.appendChild(cell);
+  });
+}
+
+function loadImageFromFile(file) {
+  return new Promise(function (res, rej) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () { res({ img: img, url: url }); };
+    img.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} rej(new Error('decode')); };
+    img.src = url;
+  });
+}
+
+function processFile(file, order) {
+  return loadImageFromFile(file).then(function (r) {
+    var iw = r.img.naturalWidth, ih = r.img.naturalHeight;
+    if (!iw || !ih) { try { URL.revokeObjectURL(r.url); } catch (e) {} throw new Error('decode'); }
+    var scale = Math.min(1, 1600 / Math.max(iw, ih));
+    var w = Math.max(1, Math.round(iw * scale));
+    var h = Math.max(1, Math.round(ih * scale));
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(r.img, 0, 0, w, h);
+    try { URL.revokeObjectURL(r.url); } catch (e) {}
+    return new Promise(function (res, rej) {
+      canvas.toBlob(function (b) {
+        if (b) res({ id: uuid(), blob: b, caption: '', order: order, w: w, h: h, createdAt: Date.now() });
+        else rej(new Error('encode'));
+      }, 'image/jpeg', 0.85);
+    });
+  });
+}
+
+async function handleFiles(fileList) {
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  var total = files.length, fail = 0, idbFail = false;
+  var order = photos.length ? Math.max.apply(null, photos.map(function (p) { return p.order; })) + 1 : 0;
+  for (var i = 0; i < files.length; i++) {
+    var rec = null;
+    try { rec = await processFile(files[i], order); }
+    catch (e) { fail++; continue; }
+    try {
+      await dbPut(rec);
+      photos.push(rec);
+      order++;
+    } catch (e2) { idbFail = true; }
+  }
+  photos.sort(function (a, b) { return a.order - b.order; });
+  renderBoard();
+  if (fail > 0) alert(total + '장 중 ' + fail + '장은 읽을 수 없어 건너뛰었어요.');
+  if (idbFail) alert('일부 사진을 저장하지 못했어요. 저장 공간을 확인해 주세요.');
+}
+
+$('addPhotoBtn').addEventListener('click', function () { $('photoInput').click(); });
+$('bigAddBtn').addEventListener('click', function () { $('photoInput').click(); });
+$('photoInput').addEventListener('change', function () {
+  handleFiles(this.files);
+  this.value = '';
+});
+
+/* ---------- 사진 편집 시트 ---------- */
+var editingId = null;
+var capSaveTimer = null;
+
+function findPhotoIdx(id) {
+  for (var i = 0; i < photos.length; i++) if (photos[i].id === id) return i;
+  return -1;
+}
+
+function openSheet(id) {
+  var i = findPhotoIdx(id);
+  if (i < 0) return;
+  editingId = id;
+  $('sheetImg').src = photoURL(photos[i]);
+  $('sheetCaption').value = photos[i].caption || '';
+  updateSheetNav();
+  $('sheetBackdrop').hidden = false;
+}
+function updateSheetNav() {
+  var i = findPhotoIdx(editingId);
+  $('sheetLeft').disabled = i <= 0;
+  $('sheetRight').disabled = i < 0 || i >= photos.length - 1;
+}
+function closeSheet() {
+  if (capSaveTimer) { clearTimeout(capSaveTimer); capSaveTimer = null; flushCaption(); }
+  editingId = null;
+  $('sheetBackdrop').hidden = true;
+}
+function flushCaption() {
+  var i = findPhotoIdx(editingId);
+  if (i < 0) return;
+  var v = $('sheetCaption').value.trim();
+  if (photos[i].caption === v) return;
+  photos[i].caption = v;
+  dbPut(photos[i]).catch(function () { alert('캡션 저장에 실패했어요.'); });
+  renderBoard();
+}
+$('sheetCaption').addEventListener('input', function () {
+  if (capSaveTimer) clearTimeout(capSaveTimer);
+  capSaveTimer = setTimeout(function () { capSaveTimer = null; flushCaption(); }, 300);
+});
+$('sheetLeft').addEventListener('click', function () { movePhoto(-1); });
+$('sheetRight').addEventListener('click', function () { movePhoto(1); });
+function movePhoto(dir) {
+  var i = findPhotoIdx(editingId);
+  var j = i + dir;
+  if (i < 0 || j < 0 || j >= photos.length) return;
+  var a = photos[i], b = photos[j];
+  var t = a.order; a.order = b.order; b.order = t;
+  photos.sort(function (x, y) { return x.order - y.order; });
+  Promise.all([dbPut(a), dbPut(b)]).catch(function () { alert('순서 저장에 실패했어요.'); });
+  renderBoard();
+  updateSheetNav();
+}
+$('sheetDelete').addEventListener('click', function () {
+  var i = findPhotoIdx(editingId);
+  if (i < 0) return;
+  if (!confirm('이 사진을 삭제할까요?')) return;
+  var id = editingId;
+  dbDelete(id).then(function () {
+    photos.splice(findPhotoIdx(id), 1);
+    revokeURL(id);
+    renderBoard();
+    closeSheet();
+  }).catch(function () { alert('삭제에 실패했어요.'); });
+});
+$('sheetClose').addEventListener('click', closeSheet);
+$('sheetBackdrop').addEventListener('click', function (e) {
+  if (e.target === this) closeSheet();
+});
+
+/* ---------- 슬라이드쇼 ---------- */
+var ss = { on: false, idx: 0, timer: null, capTimer: null, active: 0, wake: null };
+
+function startShow() {
+  if (!photos.length) return;
+  ss.on = true; ss.idx = 0; ss.active = 0;
+  $('slideshow').hidden = false;
+  $('slideControls').hidden = true;
+  if (navigator.wakeLock && navigator.wakeLock.request) {
+    navigator.wakeLock.request('screen')
+      .then(function (w) { ss.wake = w; })
+      .catch(function () {});
+  }
+  if (settings.slideTts) primeTts();
+  renderSlide();
+}
+
+function renderSlide() {
+  if (ss.timer) clearTimeout(ss.timer);
+  if (ss.capTimer) clearTimeout(ss.capTimer);
+  var p = photos[ss.idx];
+  if (!p) { endShow(); return; }
+  var layers = [$('slideA'), $('slideB')];
+  var outgoing = layers[ss.active];
+  ss.active ^= 1;
+  var incoming = layers[ss.active];
+  incoming.src = photoURL(p);
+  incoming.classList.remove('kb0', 'kb1', 'show');
+  void incoming.offsetWidth; // 켄번즈 애니메이션 재시작
+  incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
+  setTimeout(function () {
+    incoming.classList.add('show');   // 1초 크로스페이드
+    outgoing.classList.remove('show');
+  }, 30);
+  var cap = $('slideCaption');
+  cap.classList.remove('show');
+  cap.textContent = p.caption || '';
+  if (p.caption) {
+    ss.capTimer = setTimeout(function () { cap.classList.add('show'); }, 1000);
+  }
+  ttsCancel();
+  var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
+  var start = Date.now();
+  var advance = function () {
+    if (tok !== ss.token || !ss.on) return;
+    if (ss.idx < photos.length - 1) { ss.idx++; renderSlide(); }
+    else endShow();
+  };
+  if (settings.slideTts && p.caption && ttsOK()) {
+    /* 낭독 장: max(8초, 낭독 종료 + 0.8초) 후 다음 장.
+       onend가 안 와도 ttsSpeak의 문장 길이 타임아웃이 onDone을 보장 */
+    ttsSpeak(p.caption, function () {
+      if (tok !== ss.token || !ss.on) return;
+      ss.timer = setTimeout(advance, Math.max(800, 8000 - (Date.now() - start)));
+    });
+  } else {
+    ss.timer = setTimeout(advance, 8000);
+  }
+}
+
+/* 백그라운드 전환 시: 타이머·낭독을 멈추고 현재 장에서 컨트롤 표시 상태로 정지 */
+function pauseShow() {
+  if (!ss.on) return;
+  ss.token = (ss.token || 0) + 1;   // 진행 중인 onDone 콜백 무효화
+  if (ss.timer) { clearTimeout(ss.timer); ss.timer = null; }
+  if (ss.capTimer) { clearTimeout(ss.capTimer); ss.capTimer = null; }
+  $('slideControls').hidden = false;
+}
+
+function endShow() {
+  ss.on = false;
+  if (ss.timer) { clearTimeout(ss.timer); ss.timer = null; }
+  if (ss.capTimer) { clearTimeout(ss.capTimer); ss.capTimer = null; }
+  ttsCancel();
+  if (ss.wake) { try { ss.wake.release(); } catch (e) {} ss.wake = null; }
+  $('slideshow').hidden = true;
+  var la = $('slideA'), lb = $('slideB');
+  la.className = 'slide-img'; lb.className = 'slide-img';
+  la.removeAttribute('src'); lb.removeAttribute('src');
+  $('slideCaption').classList.remove('show');
+}
+
+$('playShowBtn').addEventListener('click', startShow);
+$('slideshow').addEventListener('click', function () {
+  $('slideControls').hidden = !$('slideControls').hidden;
+});
+$('ssClose').addEventListener('click', function (e) { e.stopPropagation(); endShow(); });
+$('ssPrev').addEventListener('click', function (e) {
+  e.stopPropagation();
+  if (ss.idx > 0) { ss.idx--; renderSlide(); }
+});
+$('ssNext').addEventListener('click', function (e) {
+  e.stopPropagation();
+  if (ss.idx < photos.length - 1) { ss.idx++; renderSlide(); }
+  else endShow();
+});
+
+$('slideTtsChk').addEventListener('change', function () {
+  settings.slideTts = this.checked;
+  saveSettings();
+});
+
+/* ---------- 기록 탭 ---------- */
+function calcStreak() {
+  var d = new Date();
+  var tk = dateKey(d);
+  var n = 0;
+  if (!(records[tk] && records[tk].recite)) d.setDate(d.getDate() - 1); // 오늘 미체크면 어제부터
+  while (true) {
+    var k = dateKey(d);
+    if (records[k] && records[k].recite) { n++; d.setDate(d.getDate() - 1); }
+    else break;
+    if (n > 3650) break;
+  }
+  return n;
+}
+
+function renderRecord() {
+  var k = todayKey();
+  var r = records[k] || {};
+  try {
+    $('todayLabel').textContent = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  } catch (e) { $('todayLabel').textContent = k; }
+  $('chkRecite').classList.toggle('on', !!r.recite);
+  $('chkAction').classList.toggle('on', !!r.action);
+
+  var streak = calcStreak();
+  $('streakNum').textContent = streak;
+  var note = '';
+  if (r.recite) note = '오늘까지 이어졌어요';
+  else if (streak > 0) note = '어제까지 이어졌어요. 오늘 낭송하면 ' + (streak + 1) + '일이 돼요';
+  else note = '오늘 낭송으로 시작해 보세요';
+  $('streakNote').textContent = note;
+
+  var grid = $('histGrid');
+  grid.innerHTML = '';
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var dow = (today.getDay() + 6) % 7;               // 월=0
+  var start = new Date(today);
+  start.setDate(today.getDate() - dow - 21);         // 3주 전 월요일
+  for (var i = 0; i < 28; i++) {
+    var d = new Date(start);
+    d.setDate(start.getDate() + i);
+    var key = dateKey(d);
+    var rec = records[key];
+    var cell = document.createElement('div');
+    cell.className = 'hcell';
+    if (d.getTime() > today.getTime()) cell.classList.add('future');
+    if (key === k) cell.classList.add('today');
+    if (rec && rec.recite) cell.classList.add('done');
+    if (rec && rec.action && d.getTime() <= today.getTime()) {
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      cell.appendChild(dot);
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function toggleToday(field) {
+  var k = todayKey();
+  var r = records[k] || { recite: false, action: false };
+  r[field] = !r[field];
+  records[k] = r;
+  LS.set('aff.records', records);
+  renderRecord();
+}
+$('chkRecite').addEventListener('click', function () { toggleToday('recite'); });
+$('chkAction').addEventListener('click', function () { toggleToday('action'); });
+
+/* ---------- 탭 전환 ---------- */
+document.querySelectorAll('.tabbtn').forEach(function (b) {
+  b.addEventListener('click', function () { switchTab(b.dataset.tab); });
+});
+function switchTab(name) {
+  if (recite.playing) stopPlay();
+  document.querySelectorAll('.tabbtn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  document.querySelectorAll('.tabc').forEach(function (s) {
+    s.classList.toggle('active', s.id === 'tab-' + name);
+  });
+  if (name === 'record') renderRecord();
+}
+
+/* ---------- 설정 ---------- */
+var settingsSnapshot = { morning: '', reasons: '' };
+
+function openSettings() {
+  $('taMorning').value = sentences.morning.join('\n');
+  $('taReasons').value = sentences.reasons.join('\n');
+  settingsSnapshot.morning = $('taMorning').value;
+  settingsSnapshot.reasons = $('taReasons').value;
+  $('savedMsg').hidden = true;
+  $('slideTtsChk').checked = !!settings.slideTts;
+  $('exportPhotosChk').checked = !!settings.exportPhotos;
+  $('rateSlider').value = settings.rate;
+  $('rateVal').textContent = Number(settings.rate).toFixed(1);
+  if (ttsOK()) populateVoices();
+  $('settingsScreen').hidden = false;
+}
+function closeSettings() {
+  if ($('taMorning').value !== settingsSnapshot.morning || $('taReasons').value !== settingsSnapshot.reasons) {
+    if (!confirm('저장하지 않은 문장이 있어요. 저장 없이 나갈까요?')) return;
+  }
+  $('settingsScreen').hidden = true;
+  renderRecite();
+}
+$('gearBtn').addEventListener('click', openSettings);
+$('settingsBack').addEventListener('click', closeSettings);
+
+$('saveSentencesBtn').addEventListener('click', function () {
+  var parse = function (t) {
+    return t.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+  };
+  sentences = { morning: parse($('taMorning').value), reasons: parse($('taReasons').value) };
+  LS.set('aff.sentences', sentences);
+  settingsSnapshot.morning = $('taMorning').value;
+  settingsSnapshot.reasons = $('taReasons').value;
+  stopPlay();
+  if (recite.set === 'reasons' && sentences.reasons.length === 0) recite.set = 'morning';
+  recite.idx = 0; recite.done = false;
+  renderRecite();
+  var m = $('savedMsg');
+  m.hidden = false;
+  setTimeout(function () { m.hidden = true; }, 2000);
+});
+
+/* 음성 목록 (ko 우선 + 전체 보기) */
+function populateVoices() {
+  var sel = $('voiceSel');
+  var showAll = $('voiceAllChk').checked;
+  var ko = voices.filter(function (v) { return v.lang && v.lang.toLowerCase().indexOf('ko') === 0; });
+  var rest = voices.filter(function (v) { return !(v.lang && v.lang.toLowerCase().indexOf('ko') === 0); });
+  var list = showAll ? ko.concat(rest) : ko;
+  sel.innerHTML = '';
+  sel.appendChild(new Option('자동 (한국어 우선)', ''));
+  list.forEach(function (v) {
+    sel.appendChild(new Option(v.name + ' (' + v.lang + ')', v.voiceURI));
+  });
+  sel.value = settings.voiceURI || '';
+  if (sel.value !== (settings.voiceURI || '')) sel.value = '';
+}
+$('voiceAllChk').addEventListener('change', populateVoices);
+$('voiceSel').addEventListener('change', function () {
+  settings.voiceURI = this.value;
+  saveSettings();
+});
+$('rateSlider').addEventListener('input', function () {
+  settings.rate = parseFloat(this.value);
+  $('rateVal').textContent = settings.rate.toFixed(1);
+  saveSettings();
+  updatePlayUI();
+});
+$('previewBtn').addEventListener('click', function () {
+  primeTts();
+  ttsSpeak('오늘도 나는 조금씩 나아지고 있어요.', null);
+});
+$('exportPhotosChk').addEventListener('change', function () {
+  settings.exportPhotos = this.checked;
+  saveSettings();
+});
+
+/* ---------- 내보내기 / 가져오기 ---------- */
+function blobToDataURL(blob) {
+  return new Promise(function (res, rej) {
+    var fr = new FileReader();
+    fr.onload = function () { res(fr.result); };
+    fr.onerror = function () { rej(fr.error); };
+    fr.readAsDataURL(blob);
+  });
+}
+function dataURLToBlob(du) {
+  var m = /^data:([^;,]*)?(;base64)?,([\s\S]*)$/.exec(String(du));
+  if (!m) throw new Error('bad dataURL');
+  if (m[2]) {
+    var bin = atob(m[3]);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: m[1] || 'image/jpeg' });
+  }
+  return new Blob([decodeURIComponent(m[3])], { type: m[1] || 'text/plain' });
+}
+
+$('exportBtn').addEventListener('click', async function () {
+  try {
+    var data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sentences: sentences,
+      records: records,
+      settings: settings
+    };
+    if (settings.exportPhotos && photos.length) {
+      data.photos = [];
+      for (var i = 0; i < photos.length; i++) {
+        var p = photos[i];
+        data.photos.push({
+          id: p.id, caption: p.caption, order: p.order, w: p.w, h: p.h,
+          dataUrl: await blobToDataURL(p.blob)
+        });
+      }
+    }
+    var json = JSON.stringify(data);
+    var fname = '매일확언_백업_' + todayKey() + '.json';
+    if (navigator.canShare && window.File) {
+      try {
+        var file = new File([json], fname, { type: 'application/json' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // 사용자가 공유 취소
+      }
+    }
+    var url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+  } catch (e) {
+    alert('내보내기에 실패했어요.');
+  }
+});
+
+$('importBtn').addEventListener('click', function () { $('importInput').click(); });
+$('importInput').addEventListener('change', function () {
+  var f = this.files && this.files[0];
+  this.value = '';
+  if (f) importData(f);
+});
+
+async function importData(file) {
+  try {
+    var text = await file.text();
+    var data = JSON.parse(text);
+    if (!data || data.version !== 1) throw new Error('version');
+    if (!data.sentences || !Array.isArray(data.sentences.morning) || !Array.isArray(data.sentences.reasons)) throw new Error('sentences');
+    if (!data.records || typeof data.records !== 'object' || Array.isArray(data.records)) throw new Error('records');
+    if (!data.settings || typeof data.settings !== 'object') throw new Error('settings');
+
+    /* 사진 먼저 전부 변환 (실패 시 기존 데이터 무변경) */
+    var newPhotos = [];
+    if (data.photos != null) {
+      if (!Array.isArray(data.photos)) throw new Error('photos');
+      for (var i = 0; i < data.photos.length; i++) {
+        var p = data.photos[i];
+        if (!p || typeof p.dataUrl !== 'string') throw new Error('photo item');
+        newPhotos.push({
+          id: (typeof p.id === 'string' && p.id) ? p.id : uuid(),
+          blob: dataURLToBlob(p.dataUrl),
+          caption: typeof p.caption === 'string' ? p.caption : '',
+          order: Number(p.order) || i,
+          w: Number(p.w) || 0,
+          h: Number(p.h) || 0,
+          createdAt: Date.now()
+        });
+      }
+    }
+
+    if (!confirm('기존 데이터를 모두 교체할까요? 되돌릴 수 없어요.')) return;
+
+    /* 1) 사진을 IndexedDB에 먼저 기록 — 실패하면 localStorage는 건드리지 않음 */
+    try {
+      await dbClear();
+      for (var j = 0; j < newPhotos.length; j++) await dbPut(newPhotos[j]);
+    } catch (ePhoto) {
+      alert('사진 저장에 실패해서 가져오기를 중단했어요. 문장·기록·설정은 바뀌지 않았어요.');
+      return;
+    }
+    photos.forEach(function (old) { revokeURL(old.id); });
+    photos = newPhotos.sort(function (a, b) { return a.order - b.order; });
+
+    /* 2) 사진 기록이 끝난 뒤 localStorage 교체 */
+    sentences = {
+      morning: data.sentences.morning.map(String),
+      reasons: data.sentences.reasons.map(String)
+    };
+    records = data.records;
+    settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
+    LS.set('aff.sentences', sentences);
+    LS.set('aff.records', records);
+    LS.set('aff.settings', settings);
+    LS.set('aff.v', 1);
+
+    stopPlay();
+    recite.set = 'morning'; recite.idx = 0; recite.done = false;
+    $('settingsScreen').hidden = true;
+    renderRecite(); renderBoard(); renderRecord();
+    $('slideTtsChk').checked = !!settings.slideTts;
+    $('exportPhotosChk').checked = !!settings.exportPhotos;
+    $('rateSlider').value = settings.rate;
+    $('rateVal').textContent = Number(settings.rate).toFixed(1);
+    alert('가져오기를 마쳤어요.');
+  } catch (e) {
+    alert('가져오기에 실패했어요. 파일이 올바른지 확인해 주세요. 기존 데이터는 그대로예요.');
+  }
+}
+
+/* ---------- 초기화 ---------- */
+$('slideTtsChk').checked = !!settings.slideTts;
+renderRecite();
+renderRecord();
+renderBoard();
+
+dbGetAll().then(function (list) {
+  photos = (list || []).sort(function (a, b) { return a.order - b.order; });
+  renderBoard();
+}).catch(function () {
+  photos = [];
+  renderBoard();
+});
+
+/* 서비스워커 (https 또는 localhost에서만) */
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
