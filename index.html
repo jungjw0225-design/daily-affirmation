@@ -1280,42 +1280,55 @@ function renderSlide() {
   var outgoing = layers[ss.active];
   ss.active ^= 1;
   var incoming = layers[ss.active];
-  incoming.src = p.src;
-  incoming.classList.remove('kb0', 'kb1', 'show');
-  void incoming.offsetWidth; // 켄번즈 애니메이션 재시작
-  incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
-  setTimeout(function () {
-    incoming.classList.add('show');   // 1초 크로스페이드
-    outgoing.classList.remove('show');
-  }, 30);
   var cap = $('slideCaption');
   cap.style.transition = 'none';   /* 이전 캡션은 즉시 숨김 — 새 문장이 페이드아웃되며 비치는 잔상 방지 */
   cap.classList.remove('show');
   void cap.offsetWidth;
   cap.style.transition = '';
-  cap.textContent = p.caption || '';
-  if (p.caption) {
-    /* 사진 크로스페이드와 같은 시점에 페이드인 — 문구만 늦게 나오지 않게 */
-    ss.capTimer = setTimeout(function () { cap.classList.add('show'); }, 30);
-  }
   ttsCancel();
   var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
-  var start = Date.now();
-  var advance = function () {
-    if (tok !== ss.token || !ss.on) return;
-    if (ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
-    else endShow();
-  };
-  if (settings.slideTts && p.caption && ttsOK()) {
-    /* 낭독 장: max(8초, 낭독 종료 + 0.8초) 후 다음 장.
-       onend가 안 와도 ttsSpeak의 문장 길이 타임아웃이 onDone을 보장 */
-    ttsSpeak(p.caption, function () {
+
+  /* 이 레이어에는 두 장 전 사진이 남아 있음 — 새 사진 로딩 중에
+     엉뚱한 사진이 새 문구와 함께 보이지 않도록 비우고 나서 로드 */
+  incoming.classList.remove('kb0', 'kb1', 'show');
+  incoming.removeAttribute('src');
+  incoming.src = p.src;
+
+  /* 새 사진이 준비된 뒤에야 사진·문구를 함께 전환 (그동안 이전 장이 그대로 보임) */
+  var started = false;
+  var startFade = function () {
+    if (started || tok !== ss.token || !ss.on) return;
+    started = true;
+    void incoming.offsetWidth; // 켄번즈 애니메이션 재시작 + 페이드 시작 상태 확정
+    incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
+    incoming.classList.add('show');   // 1초 크로스페이드
+    outgoing.classList.remove('show');
+    cap.textContent = p.caption || '';
+    if (p.caption) cap.classList.add('show');
+    var start = Date.now();
+    var advance = function () {
       if (tok !== ss.token || !ss.on) return;
-      ss.timer = setTimeout(advance, Math.max(800, 8000 - (Date.now() - start)));
-    });
-  } else {
-    ss.timer = setTimeout(advance, 8000);
-  }
+      if (ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
+      else endShow();
+    };
+    if (settings.slideTts && p.caption && ttsOK()) {
+      /* 낭독 장: max(8초, 낭독 종료 + 0.8초) 후 다음 장.
+         onend가 안 와도 ttsSpeak의 문장 길이 타임아웃이 onDone을 보장 */
+      ttsSpeak(p.caption, function () {
+        if (tok !== ss.token || !ss.on) return;
+        ss.timer = setTimeout(advance, Math.max(800, 8000 - (Date.now() - start)));
+      });
+    } else {
+      ss.timer = setTimeout(advance, 8000);
+    }
+    /* 다음 장 미리 받아두기 — 다음 전환은 대기 없이 바로 */
+    var nxt = ss.list[ss.idx + 1];
+    if (nxt) { ss.preload = new Image(); ss.preload.src = nxt.src; }
+  };
+  if (incoming.decode) incoming.decode().then(startFade, startFade);
+  else if (incoming.complete) startFade();
+  else { incoming.onload = startFade; incoming.onerror = startFade; }
+  setTimeout(startFade, 4000);   // 로딩이 아주 늦어도 진행 (빈 화면 대신 페이드만 시작)
 }
 
 /* 백그라운드 전환 시: 타이머·낭독을 멈추고 현재 장에서 컨트롤 표시 상태로 정지 */
