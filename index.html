@@ -514,6 +514,7 @@
     <button class="btn ghost" id="exportBtn">JSON 내보내기</button>
     <button class="btn ghost" id="importBtn">JSON 가져오기</button>
     <p class="hint-line">내보내기 파일이 유일한 백업이에요. 기기를 바꾸거나 앱 데이터가 지워질 수 있으니 가끔 저장해 두세요.</p>
+    <p class="hint-line" id="verLine"></p>
   </div>
 </section>
 
@@ -562,6 +563,8 @@
    ===================================================== */
 
 var $ = function (id) { return document.getElementById(id); };
+
+var APP_VER = '2026-08-29.2';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
 
 /* ---------- 저장소 ---------- */
 var LS = {
@@ -1800,11 +1803,30 @@ dbGetAll().then(function (list) {
 loadRepoPhotos();      // 저장소 공용 사진 목록 (photos.json 없으면 조용히 무시)
 loadRepoSentences();   // 저장소 공용 문장 (sentences.json 없으면 조용히 무시)
 
+$('verLine').textContent = '앱 버전 ' + APP_VER;
+
 /* 서비스워커 (https 또는 localhost에서만) */
 if ('serviceWorker' in navigator &&
     (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+
+  /* 새 버전 서비스워커가 제어권을 잡으면(지금 화면은 구버전) 한 번 자동 새로고침 —
+     닫았다 다시 열 필요 없이 바로 최신 화면으로. 낭독·슬라이드쇼 중엔 방해하지 않음 */
+  var hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!hadSW) { hadSW = true; return; }   // 최초 설치는 화면이 이미 최신이라 새로고침 불필요
+    if (recite.playing || ss.on) return;
+    location.reload();
+  });
+
+  /* 앱으로 돌아올 때마다 업데이트 확인 — 홈 화면 앱은 오래 떠 있어 확인이 늦음 */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    navigator.serviceWorker.getRegistration()
+      .then(function (r) { if (r) r.update(); })
+      .catch(function () {});
   });
 }
 </script>

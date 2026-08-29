@@ -33,6 +33,8 @@ function putCache(req, res) {
 }
 
 /* 네트워크 우선 (앱 본체·문장/사진 목록): 새 버전이 첫 방문에 바로 반영.
+   cache:'no-cache'로 브라우저 HTTP 캐시(GitHub Pages max-age 10분)를 우회해
+   항상 서버에 최신 여부를 확인 (안 바뀌었으면 304로 가볍게 끝남).
    네트워크가 느리면 2.5초 후 캐시로 먼저 열고, 응답은 다음을 위해 캐시에 저장 */
 function networkFirst(req) {
   return new Promise(function (resolve) {
@@ -42,7 +44,7 @@ function networkFirst(req) {
         if (!settled && cached) { settled = true; resolve(cached); }
       });
     }, 2500);
-    fetch(req).then(function (res) {
+    fetch(req, { cache: 'no-cache' }).then(function (res) {
       putCache(req, res);
       clearTimeout(timer);
       if (!settled) { settled = true; resolve(res); }
