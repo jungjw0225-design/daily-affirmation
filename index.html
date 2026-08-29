@@ -122,6 +122,7 @@
     font-family: var(--serif);
     font-size: 29px; font-weight: 600; line-height: 1.7;
     letter-spacing: -0.3px; max-width: 560px;
+    text-wrap: balance;   /* 줄 나뉠 때 마지막 줄에 한 단어만 남지 않게 균형 배치 */
   }
   .recite-sentence.sz-m { font-size: 24px; }
   .recite-sentence.sz-s { font-size: 20px; }
@@ -335,6 +336,7 @@
     bottom: calc(40px + env(safe-area-inset-bottom));
     text-align: center; font-family: var(--serif);
     font-size: 21px; font-weight: 600; line-height: 1.6; color: #fff;
+    text-wrap: balance;
     text-shadow: 0 1px 10px rgba(0,0,0,0.85);
     opacity: 0; transition: opacity 0.9s ease; pointer-events: none;
   }
@@ -1283,10 +1285,14 @@ function renderSlide() {
     outgoing.classList.remove('show');
   }, 30);
   var cap = $('slideCaption');
+  cap.style.transition = 'none';   /* 이전 캡션은 즉시 숨김 — 새 문장이 페이드아웃되며 비치는 잔상 방지 */
   cap.classList.remove('show');
+  void cap.offsetWidth;
+  cap.style.transition = '';
   cap.textContent = p.caption || '';
   if (p.caption) {
-    ss.capTimer = setTimeout(function () { cap.classList.add('show'); }, 1000);
+    /* 사진 크로스페이드와 같은 시점에 페이드인 — 문구만 늦게 나오지 않게 */
+    ss.capTimer = setTimeout(function () { cap.classList.add('show'); }, 30);
   }
   ttsCancel();
   var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
