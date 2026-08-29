@@ -27,7 +27,7 @@ self.addEventListener('activate', function (e) {
 function putCache(req, res) {
   if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
     var copy = res.clone();
-    caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+    caches.open(CACHE).then(function (c) { return c.put(req, copy); }).catch(function () {});
   }
   return res;
 }

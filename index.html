@@ -113,12 +113,15 @@
 
   .recite-area {
     flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
+    align-items: center; text-align: center;
     padding: 24px 28px; cursor: pointer; user-select: none; -webkit-user-select: none;
+    overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0;
   }
+  /* 세로 중앙은 auto 마진으로: justify-content:center는 내용이 넘칠 때 위쪽이 잘리고
+     긴 문장에서 컨트롤·이유 바가 탭바 밑에 묻힘 */
   .recite-progress {
     font-size: 13px; color: var(--text-dim); letter-spacing: 3px; margin-bottom: 30px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums; margin-top: auto;
   }
   .recite-sentence {
     font-family: var(--serif);
@@ -128,7 +131,7 @@
   }
   .recite-sentence.sz-m { font-size: 24px; }
   .recite-sentence.sz-s { font-size: 20px; }
-  .recite-hint { font-size: 13px; color: var(--text-dim); margin-top: 26px; min-height: 20px; }
+  .recite-hint { font-size: 13px; color: var(--text-dim); margin-top: 26px; min-height: 20px; margin-bottom: auto; }
 
   .done-sun { width: 66px; height: 44px; margin-bottom: 6px; }
   .done-big { font-size: 24px; font-weight: 700; }
@@ -340,15 +343,19 @@
     font-size: 21px; font-weight: 600; line-height: 1.6; color: #fff;
     text-wrap: balance;
     text-shadow: 0 1px 10px rgba(0,0,0,0.85);
-    opacity: 0; transition: opacity 1s ease; pointer-events: none;   /* 사진 크로스페이드와 동일 속도 */
+    /* 아주 긴 캡션이 사진·컨트롤을 덮지 않게 4줄까지만 표시 */
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+    opacity: 0; transition: opacity 1s ease, bottom 0.2s ease; pointer-events: none;   /* 페이드는 사진과 동일 속도 */
   }
   .slide-caption.show { opacity: 1; }
   .slide-caption.out { transition-duration: 0.35s; }   /* 장 전환 시 이전 문구는 짧게 페이드아웃 */
   .slide-controls {
     position: absolute; left: 0; right: 0;
-    bottom: calc(90px + env(safe-area-inset-bottom));
+    bottom: calc(24px + env(safe-area-inset-bottom));
     display: flex; justify-content: center; gap: 12px;
   }
+  /* 컨트롤이 열려 있으면 캡션을 그 위로 올려 겹치지 않게 */
+  .slideshow.controls-open .slide-caption { bottom: calc(96px + env(safe-area-inset-bottom)); }
   .slide-controls[hidden] { display: none; }
   .slide-controls button {
     padding: 12px 22px; font-size: 14px; font-weight: 700;
@@ -576,6 +583,7 @@ if (!Array.isArray(sentences.reasons)) sentences.reasons = [];
 /* 저장소 공용 문장: 같은 오리진의 sentences.json (없으면 조용히 무시).
    로컬 문장이 하나도 없을 때만 대신 사용 — 로컬 저장 시 로컬이 우선 */
 var repoSentences = { morning: [], reasons: [] };
+var repoSentencesSettled = false;   /* 로딩이 끝나기 전엔 '문장 없어요' 안내를 띄우지 않기 위한 플래그 */
 function effectiveSentences() {
   var localEmpty = sentences.morning.length === 0 && sentences.reasons.length === 0;
   var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
@@ -584,22 +592,24 @@ function effectiveSentences() {
 function usingRepoSentences() { return effectiveSentences() === repoSentences; }
 function loadRepoSentences() {
   try {
-    if (typeof fetch !== 'function') return;
+    if (typeof fetch !== 'function') { repoSentencesSettled = true; renderRecite(); return; }
     fetch('sentences.json', { cache: 'no-cache' }).then(function (r) {
       if (!r || !r.ok) return null;
       return r.json();
     }).then(function (d) {
-      if (!d || typeof d !== 'object') return;
-      var clean = function (a) {
-        return Array.isArray(a)
-          ? a.map(function (s) { return String(s).trim(); }).filter(function (s) { return s.length > 0; })
-          : [];
-      };
-      repoSentences = { morning: clean(d.morning), reasons: clean(d.reasons) };
+      if (d && typeof d === 'object') {
+        var clean = function (a) {
+          return Array.isArray(a)
+            ? a.map(function (s) { return String(s).trim(); }).filter(function (s) { return s.length > 0; })
+            : [];
+        };
+        repoSentences = { morning: clean(d.morning), reasons: clean(d.reasons) };
+      }
+      repoSentencesSettled = true;
       renderRecite();
       warmFonts();
-    }).catch(function () {});
-  } catch (e) {}
+    }).catch(function () { repoSentencesSettled = true; renderRecite(); });
+  } catch (e) { repoSentencesSettled = true; renderRecite(); }
 }
 
 var records = LS.get('aff.records', {});
@@ -607,6 +617,17 @@ if (!records || typeof records !== 'object') records = {};
 
 var settings = Object.assign({}, DEFAULT_SETTINGS, LS.get('aff.settings', {}));
 LS.set('aff.v', 1);
+
+/* 저장값·가져온 값이 깨져 있어도 (숫자가 아닌 속도 등) 동작하도록 정리 */
+function sanitizeSettings() {
+  settings.rate = parseFloat(settings.rate);
+  if (!isFinite(settings.rate)) settings.rate = 1.0;
+  settings.rate = Math.min(1.5, Math.max(0.5, settings.rate));
+  if (typeof settings.voiceURI !== 'string') settings.voiceURI = '';
+  settings.slideTts = !!settings.slideTts;
+  settings.exportPhotos = !!settings.exportPhotos;
+}
+sanitizeSettings();
 
 function saveSettings() { LS.set('aff.settings', settings); }
 
@@ -709,8 +730,13 @@ function primeTts() {
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'hidden') {
     if (recite.playing) stopPlay();
-    if (ss.on) pauseShow();   // 슬라이드쇼: 현재 장에서 정지, 복귀 시 자동 재개 안 함
+    if (ss.on) pauseShow();   // 슬라이드쇼: 현재 장에서 정지
     ttsCancel();
+  } else if (document.visibilityState === 'visible' && ss.on) {
+    /* 복귀 시 현재 장부터 자동 재개 + 화면 꺼짐 방지 다시 요청 */
+    setControls(false);
+    requestWake();
+    renderSlide();
   }
 });
 
@@ -738,7 +764,8 @@ function renderRecite() {
   $('reasonsBar').classList.toggle('back', recite.set === 'reasons');
 
   if (recite.set === 'morning' && morningEmpty) {
-    $('reciteEmpty').hidden = false;
+    /* 저장소 문장 로딩 중엔 '없어요' 안내를 잠깐이라도 띄우지 않음 (로딩 중 오표시 방지) */
+    $('reciteEmpty').hidden = !repoSentencesSettled;
     $('reciteArea').hidden = true;
     $('reciteDone').hidden = true;
     $('reciteControls').style.display = 'none';
@@ -942,7 +969,20 @@ function idbTx(mode, fn) {
 function dbGetAll() { return idbTx('readonly', function (st) { return st.getAll(); }); }
 function dbPut(rec) { return idbTx('readwrite', function (st) { return st.put(rec); }); }
 function dbDelete(id) { return idbTx('readwrite', function (st) { return st.delete(id); }); }
-function dbClear() { return idbTx('readwrite', function (st) { return st.clear(); }); }
+/* 전체 교체를 한 트랜잭션으로 — 중간 실패 시 자동 롤백되어 기존 사진이 그대로 남음 */
+function dbReplaceAll(recs) {
+  return openDB().then(function (db) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction('photos', 'readwrite');
+      var st = tx.objectStore('photos');
+      st.clear();
+      recs.forEach(function (r) { st.put(r); });
+      tx.oncomplete = function () { res(); };
+      tx.onerror = function () { rej(tx.error); };
+      tx.onabort = function () { rej(tx.error || new Error('abort')); };
+    });
+  });
+}
 
 /* ---------- 비전보드 ---------- */
 var photos = [];       // 로컬(IndexedDB) 사진
@@ -950,6 +990,7 @@ var urlCache = {};
 
 /* 저장소 공용 사진: 같은 오리진의 photos.json (없으면 조용히 무시) */
 var repoPhotos = [];
+var repoPhotosSettled = false;   /* 로딩이 끝나기 전엔 '비어 있어요' 안내를 띄우지 않기 위한 플래그 */
 var repoOverrides = LS.get('aff.repoOverrides', {});
 if (!repoOverrides || typeof repoOverrides !== 'object' || Array.isArray(repoOverrides)) repoOverrides = {};
 
@@ -999,25 +1040,27 @@ function findRepo(file) {
 }
 function loadRepoPhotos() {
   try {
-    if (typeof fetch !== 'function') return;
+    if (typeof fetch !== 'function') { repoPhotosSettled = true; renderBoard(); return; }
     fetch('photos.json', { cache: 'no-cache' }).then(function (r) {
       if (!r || !r.ok) return null;
       return r.json();
     }).then(function (list) {
-      if (!Array.isArray(list)) return;
-      repoPhotos = list.filter(function (x) { return x && typeof x.file === 'string'; })
-        .map(function (x) {
-          return {
-            file: x.file,
-            caption: typeof x.caption === 'string' ? x.caption : '',
-            order: Number(x.order) || 0
-          };
-        })
-        .sort(function (a, b) { return a.order - b.order; });
+      if (Array.isArray(list)) {
+        repoPhotos = list.filter(function (x) { return x && typeof x.file === 'string'; })
+          .map(function (x) {
+            return {
+              file: x.file,
+              caption: typeof x.caption === 'string' ? x.caption : '',
+              order: Number(x.order) || 0
+            };
+          })
+          .sort(function (a, b) { return a.order - b.order; });
+      }
+      repoPhotosSettled = true;
       renderBoard();
       warmFonts();
-    }).catch(function () {});
-  } catch (e) {}
+    }).catch(function () { repoPhotosSettled = true; renderBoard(); });
+  } catch (e) { repoPhotosSettled = true; renderBoard(); }
 }
 
 function photoURL(p) {
@@ -1065,7 +1108,7 @@ function makeThumb(src, caption, badge, dimmed, onTap) {
 
 function renderBoard() {
   var empty = repoPhotos.length + photos.length === 0;
-  $('boardEmpty').hidden = !empty;
+  $('boardEmpty').hidden = !(empty && repoPhotosSettled);   /* 로딩 중엔 빈 안내를 띄우지 않음 */
   $('boardScroll').style.display = empty ? 'none' : '';
   $('playShowBtn').disabled = visibleShowList().length === 0;
   var grid = $('boardGrid');
@@ -1236,6 +1279,8 @@ $('sheetRight').addEventListener('click', function () {
   if (currentSheetKey()) moveMerged(currentSheetKey(), 1);
 });
 $('sheetDelete').addEventListener('click', function () {
+  /* 대기 중인 캡션 저장 예약 취소 — 삭제 직후 debounce가 사진을 다시 저장해 되살리는 버그 방지 */
+  if (capSaveTimer) { clearTimeout(capSaveTimer); capSaveTimer = null; }
   var i = findPhotoIdx(editingId);
   if (i < 0) return;
   if (!confirm('이 사진을 삭제할까요?')) return;
@@ -1257,17 +1302,29 @@ $('sheetBackdrop').addEventListener('click', function (e) {
 /* ---------- 슬라이드쇼 ---------- */
 var ss = { on: false, idx: 0, timer: null, capTimer: null, active: 0, wake: null };
 
+/* 컨트롤 표시/숨김 — 표시 중엔 캡션을 컨트롤 위로 올려 겹치지 않게 */
+function setControls(show) {
+  $('slideControls').hidden = !show;
+  $('slideshow').classList.toggle('controls-open', show);
+}
+
+/* 화면 꺼짐 방지 — 쇼가 이미 끝났으면 즉시 해제(누수 방지), 재요청 시 이전 것 해제 */
+function requestWake() {
+  if (!(navigator.wakeLock && navigator.wakeLock.request)) return;
+  navigator.wakeLock.request('screen').then(function (w) {
+    if (!ss.on) { try { w.release(); } catch (e) {} return; }
+    if (ss.wake && ss.wake !== w) { try { ss.wake.release(); } catch (e) {} }
+    ss.wake = w;
+  }).catch(function () {});
+}
+
 function startShow() {
   ss.list = visibleShowList();   // 저장소(숨김 제외) + 로컬 합쳐진 목록
   if (!ss.list.length) return;
   ss.on = true; ss.idx = 0; ss.active = 0;
   $('slideshow').hidden = false;
-  $('slideControls').hidden = true;
-  if (navigator.wakeLock && navigator.wakeLock.request) {
-    navigator.wakeLock.request('screen')
-      .then(function (w) { ss.wake = w; })
-      .catch(function () {});
-  }
+  setControls(false);
+  requestWake();
   if (settings.slideTts) primeTts();
   renderSlide();
 }
@@ -1279,8 +1336,9 @@ function renderSlide() {
   if (!p) { endShow(); return; }
   var layers = [$('slideA'), $('slideB')];
   var outgoing = layers[ss.active];
-  ss.active ^= 1;
-  var incoming = layers[ss.active];
+  /* 보이는 층은 그대로 두고 숨은 층에만 새 사진을 로드 — 연타로 재진입해도
+     보이는 사진이 지워지거나 페이드 없이 뚝 바뀌지 않음. active는 전환 시작 때 넘김 */
+  var incoming = layers[ss.active ^ 1];
   var cap = $('slideCaption');
   ttsCancel();
   var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
@@ -1306,6 +1364,7 @@ function renderSlide() {
     if (started || !capOutDone || !imgReady) return;
     if (tok !== ss.token || !ss.on) return;
     started = true;
+    ss.active ^= 1;   // 이제 incoming이 보이는 층이 됨
     void incoming.offsetWidth; // 켄번즈 애니메이션 재시작 + 페이드 시작 상태 확정
     incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
     incoming.classList.add('show');   // 1초 크로스페이드
@@ -1346,7 +1405,7 @@ function pauseShow() {
   ss.token = (ss.token || 0) + 1;   // 진행 중인 onDone 콜백 무효화
   if (ss.timer) { clearTimeout(ss.timer); ss.timer = null; }
   if (ss.capTimer) { clearTimeout(ss.capTimer); ss.capTimer = null; }
-  $('slideControls').hidden = false;
+  setControls(true);
 }
 
 function endShow() {
@@ -1360,11 +1419,12 @@ function endShow() {
   la.className = 'slide-img'; lb.className = 'slide-img';
   la.removeAttribute('src'); lb.removeAttribute('src');
   $('slideCaption').classList.remove('show', 'out');
+  setControls(false);
 }
 
 $('playShowBtn').addEventListener('click', startShow);
 $('slideshow').addEventListener('click', function () {
-  $('slideControls').hidden = !$('slideControls').hidden;
+  setControls($('slideControls').hidden);
 });
 $('ssClose').addEventListener('click', function (e) { e.stopPropagation(); endShow(); });
 $('ssPrev').addEventListener('click', function (e) {
@@ -1469,6 +1529,7 @@ function switchTab(name) {
 var settingsSnapshot = { morning: '', reasons: '' };
 
 function openSettings() {
+  stopPlay();   /* 낭독 중 설정 진입 시 정지 — 미리 듣기와 발화가 얽혀 멈추는 문제 방지 */
   var eff = effectiveSentences();   /* 로컬이 비어 있으면 저장소 기본 문장을 보여줌 */
   $('taMorning').value = eff.morning.join('\n');
   $('taReasons').value = eff.reasons.join('\n');
@@ -1604,7 +1665,8 @@ $('exportBtn').addEventListener('click', async function () {
     }
     var url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     var a = document.createElement('a');
-    a.href = url; a.download = fname;
+    /* 한글 파일명은 일부 브라우저에서 'download'(확장자 없음)로 대체됨 — 다운로드 경로는 영문명 사용 */
+    a.href = url; a.download = 'affirmation-backup-' + todayKey() + '.json';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1651,10 +1713,9 @@ async function importData(file) {
 
     if (!confirm('기존 데이터를 모두 교체할까요? 되돌릴 수 없어요.')) return;
 
-    /* 1) 사진을 IndexedDB에 먼저 기록 — 실패하면 localStorage는 건드리지 않음 */
+    /* 1) 사진을 IndexedDB에 먼저 기록 — 한 트랜잭션이라 실패 시 기존 사진도 무변경 */
     try {
-      await dbClear();
-      for (var j = 0; j < newPhotos.length; j++) await dbPut(newPhotos[j]);
+      await dbReplaceAll(newPhotos);
     } catch (ePhoto) {
       alert('사진 저장에 실패해서 가져오기를 중단했어요. 문장·기록·설정은 바뀌지 않았어요.');
       return;
@@ -1669,6 +1730,7 @@ async function importData(file) {
     };
     records = data.records;
     settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
+    sanitizeSettings();
     repoOverrides = (data.repoOverrides && typeof data.repoOverrides === 'object' && !Array.isArray(data.repoOverrides))
       ? data.repoOverrides : {};
     photoOrder = Array.isArray(data.photoOrder)
