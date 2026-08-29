@@ -1,7 +1,7 @@
 /* 매일 확언 — 오프라인 캐시 서비스워커 */
 'use strict';
 
-var CACHE = 'aff-cache-v1';
+var CACHE = 'aff-cache-v2';
 var CORE = ['./', './index.html', './icon.png'];
 
 self.addEventListener('install', function (e) {
@@ -24,24 +24,51 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-/* cache-first + 백그라운드 네트워크 갱신 (stale-while-revalidate)
-   Google Fonts 포함 모든 GET에 동일 적용 — 네트워크 실패는 조용히 무시 */
+function putCache(req, res) {
+  if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+    var copy = res.clone();
+    caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+  }
+  return res;
+}
+
+/* 네트워크 우선 (앱 본체·문장/사진 목록): 새 버전이 첫 방문에 바로 반영.
+   네트워크가 느리면 2.5초 후 캐시로 먼저 열고, 응답은 다음을 위해 캐시에 저장 */
+function networkFirst(req) {
+  return new Promise(function (resolve) {
+    var settled = false;
+    var timer = setTimeout(function () {
+      caches.match(req).then(function (cached) {
+        if (!settled && cached) { settled = true; resolve(cached); }
+      });
+    }, 2500);
+    fetch(req).then(function (res) {
+      putCache(req, res);
+      clearTimeout(timer);
+      if (!settled) { settled = true; resolve(res); }
+    }).catch(function () {
+      clearTimeout(timer);
+      caches.match(req).then(function (cached) {
+        if (!settled) { settled = true; resolve(cached || Response.error()); }
+      });
+    });
+  });
+}
+
+/* 캐시 우선 + 백그라운드 갱신 (사진·폰트 등 무거운 리소스) */
+function cacheFirst(req) {
+  return caches.match(req).then(function (cached) {
+    var net = fetch(req).then(function (res) { return putCache(req, res); })
+      .catch(function () { return cached || Response.error(); });
+    return cached || net;
+  });
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
-  e.respondWith(
-    caches.match(req).then(function (cached) {
-      var net = fetch(req).then(function (res) {
-        if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
-        }
-        return res;
-      }).catch(function () {
-        // 오프라인: 캐시가 있으면 그걸, 없으면 네트워크 오류 응답 (폰트는 시스템 폰트로 폴백됨)
-        return cached || Response.error();
-      });
-      return cached || net;
-    })
-  );
+  var path = '';
+  try { path = new URL(req.url).pathname; } catch (err) {}
+  var fresh = req.mode === 'navigate' || /\.(html|json)$/.test(path) || path.slice(-1) === '/';
+  e.respondWith(fresh ? networkFirst(req) : cacheFirst(req));
 });
