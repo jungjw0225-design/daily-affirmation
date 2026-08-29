@@ -13,7 +13,7 @@
 <link rel="icon" href="icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet"/>
 <style>
   :root {
     --bg: #141414;
@@ -28,7 +28,9 @@
     --radius: 14px;
     --radius-sm: 9px;
     --sans: 'Noto Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif;
-    --serif: 'Noto Serif KR', 'Apple SD Gothic Neo', Georgia, serif;
+    /* 글귀(확언 문장·캡션)용 — 시스템 기본 폰트만 사용.
+       웹폰트를 쓰면 글자 조각이 뒤늦게 내려받아지며 글꼴이 바뀌는 깜빡임이 생김 */
+    --serif: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -1673,8 +1675,8 @@ async function importData(file) {
 
 /* ---------- 초기화 ---------- */
 /* 한글 웹폰트는 글자 범위별 조각으로 나뉘어 화면에 처음 나올 때 내려받아짐.
-   자동 낭독 중 새 문장이 폴백 폰트로 그려졌다 글꼴이 바뀌는 깜빡임을 막기 위해
-   문장·캡션에 쓰인 글자를 미리 로드 (이미 받은 조각은 재요청 없음) */
+   글귀는 시스템 폰트라 무관하지만, UI용 Noto Sans가 완료 화면·설정 문장 편집처럼
+   뒤늦게 나오는 글자에서 바뀌지 않게 미리 로드 (이미 받은 조각은 재요청 없음) */
 function warmFonts() {
   try {
     if (!(document.fonts && document.fonts.load)) return;
@@ -1685,8 +1687,8 @@ function warmFonts() {
     texts.push('오늘 낭송을 마쳤어요 끝까지 읽었어요');   // 완료 화면처럼 뒤늦게 나오는 고정 문구
     var all = texts.join('');
     if (!all) return;
-    document.fonts.load('600 29px "Noto Serif KR"', all).catch(function () {});
     document.fonts.load('700 24px "Noto Sans KR"', all).catch(function () {});
+    document.fonts.load('400 15px "Noto Sans KR"', all).catch(function () {});
   } catch (e) {}
 }
 
