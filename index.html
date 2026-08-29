@@ -594,6 +594,7 @@ function loadRepoSentences() {
       };
       repoSentences = { morning: clean(d.morning), reasons: clean(d.reasons) };
       renderRecite();
+      warmFonts();
     }).catch(function () {});
   } catch (e) {}
 }
@@ -1011,6 +1012,7 @@ function loadRepoPhotos() {
         })
         .sort(function (a, b) { return a.order - b.order; });
       renderBoard();
+      warmFonts();
     }).catch(function () {});
   } catch (e) {}
 }
@@ -1479,6 +1481,7 @@ $('saveSentencesBtn').addEventListener('click', function () {
   if (recite.set === 'reasons' && effectiveSentences().reasons.length === 0) recite.set = 'morning';
   recite.idx = 0; recite.done = false;
   renderRecite();
+  warmFonts();
   $('repoSentencesNote').hidden = !usingRepoSentences();
   var m = $('savedMsg');
   m.hidden = false;
@@ -1657,6 +1660,7 @@ async function importData(file) {
     recite.set = 'morning'; recite.idx = 0; recite.done = false;
     $('settingsScreen').hidden = true;
     renderRecite(); renderBoard(); renderRecord();
+    warmFonts();
     $('slideTtsChk').checked = !!settings.slideTts;
     $('exportPhotosChk').checked = !!settings.exportPhotos;
     $('rateSlider').value = settings.rate;
@@ -1668,6 +1672,24 @@ async function importData(file) {
 }
 
 /* ---------- 초기화 ---------- */
+/* 한글 웹폰트는 글자 범위별 조각으로 나뉘어 화면에 처음 나올 때 내려받아짐.
+   자동 낭독 중 새 문장이 폴백 폰트로 그려졌다 글꼴이 바뀌는 깜빡임을 막기 위해
+   문장·캡션에 쓰인 글자를 미리 로드 (이미 받은 조각은 재요청 없음) */
+function warmFonts() {
+  try {
+    if (!(document.fonts && document.fonts.load)) return;
+    var eff = effectiveSentences();
+    var texts = eff.morning.concat(eff.reasons);
+    repoPhotos.forEach(function (rp) { texts.push(repoCaption(rp)); });
+    photos.forEach(function (p) { if (p.caption) texts.push(p.caption); });
+    texts.push('오늘 낭송을 마쳤어요 끝까지 읽었어요');   // 완료 화면처럼 뒤늦게 나오는 고정 문구
+    var all = texts.join('');
+    if (!all) return;
+    document.fonts.load('600 29px "Noto Serif KR"', all).catch(function () {});
+    document.fonts.load('700 24px "Noto Sans KR"', all).catch(function () {});
+  } catch (e) {}
+}
+
 /* 영구 저장 요청 — 브라우저가 저장소를 임의 정리하지 않도록. 실패·미지원은 조용히 무시 */
 function requestPersist() {
   try {
@@ -1684,10 +1706,12 @@ $('slideTtsChk').checked = !!settings.slideTts;
 renderRecite();
 renderRecord();
 renderBoard();
+warmFonts();
 
 dbGetAll().then(function (list) {
   photos = (list || []).sort(function (a, b) { return a.order - b.order; });
   renderBoard();
+  warmFonts();
 }).catch(function () {
   photos = [];
   renderBoard();
