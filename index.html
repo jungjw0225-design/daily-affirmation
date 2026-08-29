@@ -348,7 +348,6 @@
     opacity: 0; transition: opacity 1s ease, bottom 0.2s ease; pointer-events: none;   /* 페이드는 사진과 동일 속도 */
   }
   .slide-caption.show { opacity: 1; }
-  .slide-caption.out { transition-duration: 0.35s; }   /* 장 전환 시 이전 문구는 짧게 페이드아웃 */
   .slide-controls {
     position: absolute; left: 0; right: 0;
     bottom: calc(24px + env(safe-area-inset-bottom));
@@ -542,7 +541,9 @@
 <div class="slideshow" id="slideshow" hidden>
   <img class="slide-img" id="slideA" alt="">
   <img class="slide-img" id="slideB" alt="">
-  <div class="slide-caption" id="slideCaption"></div>
+  <!-- 문구도 사진처럼 두 겹 크로스페이드 -->
+  <div class="slide-caption" id="capA"></div>
+  <div class="slide-caption" id="capB"></div>
   <div class="slide-controls" id="slideControls" hidden>
     <button id="ssPrev">이전</button>
     <button id="ssClose">닫기</button>
@@ -1300,7 +1301,7 @@ $('sheetBackdrop').addEventListener('click', function (e) {
 });
 
 /* ---------- 슬라이드쇼 ---------- */
-var ss = { on: false, idx: 0, timer: null, capTimer: null, active: 0, wake: null };
+var ss = { on: false, idx: 0, timer: null, active: 0, wake: null };
 
 /* 컨트롤 표시/숨김 — 표시 중엔 캡션을 컨트롤 위로 올려 겹치지 않게 */
 function setControls(show) {
@@ -1331,28 +1332,23 @@ function startShow() {
 
 function renderSlide() {
   if (ss.timer) clearTimeout(ss.timer);
-  if (ss.capTimer) clearTimeout(ss.capTimer);
   var p = (ss.list || [])[ss.idx];
   if (!p) { endShow(); return; }
   var layers = [$('slideA'), $('slideB')];
+  var caps = [$('capA'), $('capB')];
   var outgoing = layers[ss.active];
-  /* 보이는 층은 그대로 두고 숨은 층에만 새 사진을 로드 — 연타로 재진입해도
-     보이는 사진이 지워지거나 페이드 없이 뚝 바뀌지 않음. active는 전환 시작 때 넘김 */
+  var outgoingCap = caps[ss.active];
+  /* 보이는 층은 그대로 두고 숨은 층에만 새 사진·문구를 준비 — 연타로 재진입해도
+     보이는 쪽이 지워지거나 페이드 없이 뚝 바뀌지 않음. active는 전환 시작 때 넘김 */
   var incoming = layers[ss.active ^ 1];
-  var cap = $('slideCaption');
+  var incomingCap = caps[ss.active ^ 1];
   ttsCancel();
   var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
 
-  /* 전환 순서: 이전 문구가 이전 사진 위에서 짧게 페이드아웃 →
-     사진 크로스페이드와 새 문구 페이드인을 같은 순간, 같은 속도(1초)로 시작.
-     사진 로딩과 문구 아웃이 모두 끝나야 시작 (그동안 이전 장이 그대로 보임) */
-  var capOutDone = true, imgReady = false, started = false;
-  if (cap.classList.contains('show')) {
-    capOutDone = false;
-    cap.classList.add('out');
-    cap.classList.remove('show');
-    ss.capTimer = setTimeout(function () { capOutDone = true; startFade(); }, 380);
-  }
+  /* 문구도 사진과 똑같이 두 겹 크로스페이드: 이전 문구는 이전 사진과 함께
+     1초 동안 사라지고, 새 문구는 새 사진과 함께 1초 동안 나타남 */
+  incomingCap.classList.remove('show');
+  incomingCap.textContent = p.caption || '';
 
   /* 이 레이어에는 두 장 전 사진이 남아 있음 — 새 사진 로딩 중에
      엉뚱한 사진이 새 문구와 함께 보이지 않도록 비우고 나서 로드 */
@@ -1360,8 +1356,9 @@ function renderSlide() {
   incoming.removeAttribute('src');
   incoming.src = p.src;
 
+  var imgReady = false, started = false;
   function startFade() {
-    if (started || !capOutDone || !imgReady) return;
+    if (started || !imgReady) return;
     if (tok !== ss.token || !ss.on) return;
     started = true;
     ss.active ^= 1;   // 이제 incoming이 보이는 층이 됨
@@ -1369,9 +1366,8 @@ function renderSlide() {
     incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
     incoming.classList.add('show');   // 1초 크로스페이드
     outgoing.classList.remove('show');
-    cap.classList.remove('out');
-    cap.textContent = p.caption || '';
-    if (p.caption) cap.classList.add('show');   // 사진과 동시에 1초 페이드인
+    if (p.caption) incomingCap.classList.add('show');   // 새 문구: 새 사진과 함께
+    outgoingCap.classList.remove('show');               // 이전 문구: 이전 사진과 함께
     var start = Date.now();
     var advance = function () {
       if (tok !== ss.token || !ss.on) return;
@@ -1404,21 +1400,19 @@ function pauseShow() {
   if (!ss.on) return;
   ss.token = (ss.token || 0) + 1;   // 진행 중인 onDone 콜백 무효화
   if (ss.timer) { clearTimeout(ss.timer); ss.timer = null; }
-  if (ss.capTimer) { clearTimeout(ss.capTimer); ss.capTimer = null; }
   setControls(true);
 }
 
 function endShow() {
   ss.on = false;
   if (ss.timer) { clearTimeout(ss.timer); ss.timer = null; }
-  if (ss.capTimer) { clearTimeout(ss.capTimer); ss.capTimer = null; }
   ttsCancel();
   if (ss.wake) { try { ss.wake.release(); } catch (e) {} ss.wake = null; }
   $('slideshow').hidden = true;
   var la = $('slideA'), lb = $('slideB');
   la.className = 'slide-img'; lb.className = 'slide-img';
   la.removeAttribute('src'); lb.removeAttribute('src');
-  $('slideCaption').classList.remove('show', 'out');
+  $('capA').classList.remove('show'); $('capB').classList.remove('show');
   setControls(false);
 }
 
