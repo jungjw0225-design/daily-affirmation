@@ -343,6 +343,7 @@
     opacity: 0; transition: opacity 0.9s ease; pointer-events: none;
   }
   .slide-caption.show { opacity: 1; }
+  .slide-caption.out { transition-duration: 0.35s; }   /* 장 전환 시 이전 문구는 짧게 페이드아웃 */
   .slide-controls {
     position: absolute; left: 0; right: 0;
     bottom: calc(90px + env(safe-area-inset-bottom));
@@ -1281,12 +1282,26 @@ function renderSlide() {
   ss.active ^= 1;
   var incoming = layers[ss.active];
   var cap = $('slideCaption');
-  cap.style.transition = 'none';   /* 이전 캡션은 즉시 숨김 — 새 문장이 페이드아웃되며 비치는 잔상 방지 */
-  cap.classList.remove('show');
-  void cap.offsetWidth;
-  cap.style.transition = '';
   ttsCancel();
   var tok = ss.token = (ss.token || 0) + 1;   // 장 전환·정지 후 낡은 콜백 무시용
+
+  /* 글자도 사진처럼 양방향 페이드: 이전 문구는 이전 사진 위에서 짧게 페이드아웃,
+     아웃이 끝나고 새 사진 전환이 시작된 뒤에 새 문구를 페이드인 */
+  var capOutDone = true, photoStarted = false, capSwapped = false;
+  var trySwapCap = function () {
+    if (capSwapped || !capOutDone || !photoStarted) return;
+    if (tok !== ss.token || !ss.on) return;
+    capSwapped = true;
+    cap.classList.remove('out');
+    cap.textContent = p.caption || '';
+    if (p.caption) cap.classList.add('show');
+  };
+  if (cap.classList.contains('show')) {
+    capOutDone = false;
+    cap.classList.add('out');
+    cap.classList.remove('show');
+    ss.capTimer = setTimeout(function () { capOutDone = true; trySwapCap(); }, 380);
+  }
 
   /* 이 레이어에는 두 장 전 사진이 남아 있음 — 새 사진 로딩 중에
      엉뚱한 사진이 새 문구와 함께 보이지 않도록 비우고 나서 로드 */
@@ -1303,8 +1318,8 @@ function renderSlide() {
     incoming.classList.add(ss.idx % 2 ? 'kb1' : 'kb0');
     incoming.classList.add('show');   // 1초 크로스페이드
     outgoing.classList.remove('show');
-    cap.textContent = p.caption || '';
-    if (p.caption) cap.classList.add('show');
+    photoStarted = true;
+    trySwapCap();
     var start = Date.now();
     var advance = function () {
       if (tok !== ss.token || !ss.on) return;
@@ -1350,7 +1365,7 @@ function endShow() {
   var la = $('slideA'), lb = $('slideB');
   la.className = 'slide-img'; lb.className = 'slide-img';
   la.removeAttribute('src'); lb.removeAttribute('src');
-  $('slideCaption').classList.remove('show');
+  $('slideCaption').classList.remove('show', 'out');
 }
 
 $('playShowBtn').addEventListener('click', startShow);
