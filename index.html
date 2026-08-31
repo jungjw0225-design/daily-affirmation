@@ -564,7 +564,7 @@
 
 var $ = function (id) { return document.getElementById(id); };
 
-var APP_VER = '2026-08-31.1';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
+var APP_VER = '2026-08-31.2';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
 
 /* ---------- 저장소 ---------- */
 var LS = {
@@ -802,7 +802,7 @@ function updatePlayUI() {
   $('playBtn').hidden = recite.playing;
   $('stopBtn').hidden = !recite.playing;
   var hint = '';
-  if (recite.playing) hint = recite.paused ? '일시정지 — 화면을 탭하면 이어서 읽어요' : '화면을 탭하면 일시정지';
+  if (recite.playing) hint = recite.paused ? '일시정지 — 화면을 탭하면 이어서 읽어요' : '반복해서 읽는 중 — 화면을 탭하면 일시정지';
   $('reciteHint').textContent = hint;
   var btns = document.querySelectorAll('.rate-btn');
   for (var i = 0; i < btns.length; i++) {
@@ -810,16 +810,20 @@ function updatePlayUI() {
   }
 }
 
+/* 한 바퀴 완주 기록 — 아침 세트일 때만 "아침 낭송" 체크 */
+function markRecited() {
+  if (recite.set !== 'morning') return;
+  var k = todayKey();
+  var r = records[k] || { recite: false, action: false };
+  r.recite = true;  // 이미 체크면 유지
+  records[k] = r;
+  LS.set('aff.records', records);
+  renderRecord();
+}
+
 function completeSet() {
   recite.done = true;
-  if (recite.set === 'morning') {
-    var k = todayKey();
-    var r = records[k] || { recite: false, action: false };
-    r.recite = true;  // 이미 체크면 유지
-    records[k] = r;
-    LS.set('aff.records', records);
-    renderRecord();
-  }
+  markRecited();
   renderRecite();
 }
 
@@ -882,13 +886,13 @@ function speakCurrent() {
       if (!recite.playing || recite.paused) return;
       if (recite.idx < arr.length - 1) {
         recite.idx++;
-        renderRecite();
-        speakCurrent();
       } else {
-        recite.playing = false;
-        recite.paused = false;
-        completeSet();
+        /* 자동 낭독은 정지 전까지 반복: 완주 기록만 남기고 처음부터 다시 */
+        markRecited();
+        recite.idx = 0;
       }
+      renderRecite();
+      speakCurrent();
     }, 1000);
   });
 }
