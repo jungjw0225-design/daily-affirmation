@@ -564,7 +564,7 @@
 
 var $ = function (id) { return document.getElementById(id); };
 
-var APP_VER = '2026-08-29.2';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
+var APP_VER = '2026-08-31.1';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
 
 /* ---------- 저장소 ---------- */
 var LS = {
@@ -1374,8 +1374,8 @@ function renderSlide() {
     var start = Date.now();
     var advance = function () {
       if (tok !== ss.token || !ss.on) return;
-      if (ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
-      else endShow();
+      ss.idx = (ss.idx + 1) % ss.list.length;   /* 마지막 장 다음엔 첫 장 — 끝없이 반복 재생 */
+      renderSlide();
     };
     if (settings.slideTts && p.caption && ttsOK()) {
       /* 낭독 장: max(8초, 낭독 종료 + 0.8초) 후 다음 장.
@@ -1424,14 +1424,18 @@ $('slideshow').addEventListener('click', function () {
   setControls($('slideControls').hidden);
 });
 $('ssClose').addEventListener('click', function (e) { e.stopPropagation(); endShow(); });
+/* 반복 재생: 이전/다음도 끝에서 반대편으로 이어짐. 종료는 닫기로만 */
 $('ssPrev').addEventListener('click', function (e) {
   e.stopPropagation();
-  if (ss.idx > 0) { ss.idx--; renderSlide(); }
+  if (!ss.list || !ss.list.length) return;
+  ss.idx = (ss.idx - 1 + ss.list.length) % ss.list.length;
+  renderSlide();
 });
 $('ssNext').addEventListener('click', function (e) {
   e.stopPropagation();
-  if (ss.list && ss.idx < ss.list.length - 1) { ss.idx++; renderSlide(); }
-  else endShow();
+  if (!ss.list || !ss.list.length) return;
+  ss.idx = (ss.idx + 1) % ss.list.length;
+  renderSlide();
 });
 
 $('slideTtsChk').addEventListener('change', function () {
