@@ -280,7 +280,7 @@
   }
   .settings-body h2:first-child { margin-top: 6px; }
   .field-label { display: block; font-size: 13px; color: var(--text-dim); margin: 14px 0 6px; }
-  textarea, input[type="text"], select {
+  textarea, input[type="text"], input[type="password"], select {
     width: 100%; padding: 12px 14px;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-sm); color: var(--text);
@@ -484,15 +484,15 @@
   </header>
   <div class="settings-body">
     <h2>문장</h2>
-    <p class="hint-line" id="repoSentencesNote" hidden>저장소 기본 문장을 사용 중이에요. 여기서 저장하면 이 기기의 문장이 우선돼요.</p>
     <label class="field-label" for="taMorning">아침 확언 — 한 줄에 한 문장</label>
     <textarea id="taMorning" rows="8" placeholder="나는 매일 조금씩 나아지고 있다&#10;나는 내 시간의 주인이다"></textarea>
     <label class="field-label" for="taReasons">지칠 때 읽는 이유 — 비워두면 낭송 탭에서 숨겨져요</label>
     <textarea id="taReasons" rows="5" placeholder="이걸 시작한 이유를 적어두세요"></textarea>
-    <button class="btn" id="saveSentencesBtn">문장 저장</button>
+    <button class="btn" id="saveSentencesBtn">문장 저장 — 모든 기기에 반영</button>
     <p class="saved-msg" id="savedMsg" hidden>저장했어요</p>
-    <button class="btn ghost" id="useRepoBtn" hidden>저장소 기본 문장으로 되돌리기</button>
-    <p class="hint-line" id="localNote" hidden>지금은 이 기기에 저장된 문장을 쓰는 중이라, 저장소(공용) 문장이 바뀌어도 반영되지 않아요. 위 버튼을 누르면 공용 문장을 따라가요.</p>
+    <label class="field-label" for="ghToken">GitHub 토큰 — 저장을 모든 기기에 반영하는 열쇠</label>
+    <input type="password" id="ghToken" placeholder="github_pat_… 붙여넣기" autocomplete="off">
+    <p class="hint-line">토큰은 이 기기에만 저장되고 내보내기에도 포함되지 않아요. 만드는 법: github.com 로그인 → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → Repository access에서 daily-affirmation만 선택 → Permissions에서 Contents를 Read and write로 → Generate 후 복사해 붙여넣기.</p>
 
     <div class="tts-only">
       <h2>음성</h2>
@@ -566,7 +566,7 @@
 
 var $ = function (id) { return document.getElementById(id); };
 
-var APP_VER = '2026-09-28.1';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
+var APP_VER = '2026-09-28.2';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
 
 /* ---------- 저장소 ---------- */
 var LS = {
@@ -586,16 +586,14 @@ if (!sentences || typeof sentences !== 'object') sentences = { morning: [], reas
 if (!Array.isArray(sentences.morning)) sentences.morning = [];
 if (!Array.isArray(sentences.reasons)) sentences.reasons = [];
 
-/* 저장소 공용 문장: 같은 오리진의 sentences.json (없으면 조용히 무시).
-   로컬 문장이 하나도 없을 때만 대신 사용 — 로컬 저장 시 로컬이 우선 */
+/* 저장소(sentences.json)가 문장의 원본 — 모든 기기 동일.
+   로컬(aff.sentences)은 오프라인·로딩 전에 보여주는 사본 */
 var repoSentences = { morning: [], reasons: [] };
 var repoSentencesSettled = false;   /* 로딩이 끝나기 전엔 '문장 없어요' 안내를 띄우지 않기 위한 플래그 */
 function effectiveSentences() {
-  var localEmpty = sentences.morning.length === 0 && sentences.reasons.length === 0;
   var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
-  return (localEmpty && repoHas) ? repoSentences : sentences;
+  return repoHas ? repoSentences : sentences;
 }
-function usingRepoSentences() { return effectiveSentences() === repoSentences; }
 function loadRepoSentences() {
   try {
     if (typeof fetch !== 'function') { repoSentencesSettled = true; renderRecite(); return; }
@@ -610,6 +608,8 @@ function loadRepoSentences() {
             : [];
         };
         repoSentences = { morning: clean(d.morning), reasons: clean(d.reasons) };
+        sentences = repoSentences;                 /* 오프라인용 사본 갱신 */
+        LS.set('aff.sentences', repoSentences);
       }
       repoSentencesSettled = true;
       renderRecite();
@@ -1535,21 +1535,12 @@ function switchTab(name) {
 /* ---------- 설정 ---------- */
 var settingsSnapshot = { morning: '', reasons: '' };
 
-/* 문장 출처 안내 UI: 공용(저장소) 문장을 쓰는지, 이 기기 문장을 쓰는지 */
-function refreshSentenceSourceUI() {
-  var usingRepo = usingRepoSentences();
-  var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
-  $('repoSentencesNote').hidden = !usingRepo;
-  $('useRepoBtn').hidden = usingRepo || !repoHas;
-  $('localNote').hidden = usingRepo || !repoHas;
-}
-
 function openSettings() {
   stopPlay();   /* 낭독 중 설정 진입 시 정지 — 미리 듣기와 발화가 얽혀 멈추는 문제 방지 */
   var eff = effectiveSentences();   /* 로컬이 비어 있으면 저장소 기본 문장을 보여줌 */
   $('taMorning').value = eff.morning.join('\n');
   $('taReasons').value = eff.reasons.join('\n');
-  refreshSentenceSourceUI();
+  $('ghToken').value = ghToken();
   settingsSnapshot.morning = $('taMorning').value;
   settingsSnapshot.reasons = $('taReasons').value;
   $('savedMsg').hidden = true;
@@ -1570,51 +1561,65 @@ function closeSettings() {
 $('gearBtn').addEventListener('click', openSettings);
 $('settingsBack').addEventListener('click', closeSettings);
 
+/* ---------- 저장소에 문장 저장 (GitHub API) ---------- */
+var GH_REPO = 'jungjw0225-design/daily-affirmation';
+function ghToken() {
+  var t = LS.get('aff.ghToken', '');
+  return typeof t === 'string' ? t : '';
+}
+$('ghToken').addEventListener('change', function () {
+  LS.set('aff.ghToken', this.value.trim());
+});
+
+/* sentences.json을 main 브랜치에 커밋 — 성공하면 Pages가 1~2분 안에 재배포 */
+function saveSentencesToRepo(data) {
+  var url = 'https://api.github.com/repos/' + GH_REPO + '/contents/sentences.json';
+  var headers = { 'Authorization': 'Bearer ' + ghToken(), 'Accept': 'application/vnd.github+json' };
+  return fetch(url + '?ref=main', { headers: headers }).then(function (r) {
+    if (!r.ok) throw new Error('read ' + r.status);
+    return r.json();
+  }).then(function (cur) {
+    var json = JSON.stringify(data, null, 2) + '\n';
+    var b64 = btoa(unescape(encodeURIComponent(json)));
+    return fetch(url, {
+      method: 'PUT',
+      headers: headers,
+      body: JSON.stringify({ message: '앱에서 확언 문장 수정', content: b64, sha: cur.sha, branch: 'main' })
+    });
+  }).then(function (r) {
+    if (!r || !r.ok) throw new Error('write ' + (r && r.status));
+  });
+}
+
 $('saveSentencesBtn').addEventListener('click', function () {
   var parse = function (t) {
     return t.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
   };
   var parsed = { morning: parse($('taMorning').value), reasons: parse($('taReasons').value) };
-  /* 공용(저장소) 문장과 완전히 같으면 기기 저장을 만들지 않음 —
-     무심코 '저장'을 눌러도 이후 공용 문장 업데이트가 계속 반영되게 */
-  var same = function (a, b) {
-    return a.length === b.length && a.every(function (s, i) { return s === b[i]; });
-  };
-  var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
-  if (repoHas && same(parsed.morning, repoSentences.morning) && same(parsed.reasons, repoSentences.reasons)) {
-    sentences = { morning: [], reasons: [] };
-  } else {
-    sentences = parsed;
+  if (!ghToken()) {
+    alert('저장은 모든 기기에 반영되는 저장소 저장이에요.\n아래 "GitHub 토큰" 칸에 토큰을 먼저 등록해 주세요.');
+    return;
   }
-  LS.set('aff.sentences', sentences);
-  settingsSnapshot.morning = $('taMorning').value;
-  settingsSnapshot.reasons = $('taReasons').value;
-  stopPlay();
-  if (recite.set === 'reasons' && effectiveSentences().reasons.length === 0) recite.set = 'morning';
-  recite.idx = 0; recite.done = false;
-  renderRecite();
-  warmFonts();
-  refreshSentenceSourceUI();
   var m = $('savedMsg');
+  m.textContent = '저장소에 저장 중…';
   m.hidden = false;
-  setTimeout(function () { m.hidden = true; }, 2000);
-});
-
-/* 이 기기 문장을 지우고 공용(저장소) 문장을 따라가기 */
-$('useRepoBtn').addEventListener('click', function () {
-  if (!confirm('이 기기에 저장된 문장을 지우고 저장소 공용 문장을 사용할까요?')) return;
-  sentences = { morning: [], reasons: [] };
-  LS.set('aff.sentences', sentences);
-  stopPlay();
-  recite.set = 'morning'; recite.idx = 0; recite.done = false;
-  renderRecite();
-  warmFonts();
-  var eff = effectiveSentences();
-  $('taMorning').value = eff.morning.join('\n');
-  $('taReasons').value = eff.reasons.join('\n');
-  settingsSnapshot.morning = $('taMorning').value;
-  settingsSnapshot.reasons = $('taReasons').value;
-  refreshSentenceSourceUI();
+  saveSentencesToRepo(parsed).then(function () {
+    repoSentences = parsed;
+    sentences = parsed;
+    LS.set('aff.sentences', parsed);
+    settingsSnapshot.morning = $('taMorning').value;
+    settingsSnapshot.reasons = $('taReasons').value;
+    stopPlay();
+    if (recite.set === 'reasons' && effectiveSentences().reasons.length === 0) recite.set = 'morning';
+    recite.idx = 0; recite.done = false;
+    renderRecite();
+    warmFonts();
+    m.textContent = '모든 기기에 저장했어요 — 다른 기기는 1~2분 뒤 반영';
+    setTimeout(function () { m.hidden = true; }, 4000);
+  }).catch(function () {
+    m.hidden = true;
+    alert('저장소 저장에 실패했어요. 인터넷 연결과 토큰이 올바른지 확인해 주세요.\n(토큰 만료 시 새로 만들어 다시 등록)');
+  });
 });
 
 /* 음성 목록 (ko 우선 + 전체 보기) */
