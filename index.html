@@ -491,6 +491,8 @@
     <textarea id="taReasons" rows="5" placeholder="이걸 시작한 이유를 적어두세요"></textarea>
     <button class="btn" id="saveSentencesBtn">문장 저장</button>
     <p class="saved-msg" id="savedMsg" hidden>저장했어요</p>
+    <button class="btn ghost" id="useRepoBtn" hidden>저장소 기본 문장으로 되돌리기</button>
+    <p class="hint-line" id="localNote" hidden>지금은 이 기기에 저장된 문장을 쓰는 중이라, 저장소(공용) 문장이 바뀌어도 반영되지 않아요. 위 버튼을 누르면 공용 문장을 따라가요.</p>
 
     <div class="tts-only">
       <h2>음성</h2>
@@ -564,7 +566,7 @@
 
 var $ = function (id) { return document.getElementById(id); };
 
-var APP_VER = '2026-08-31.2';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
+var APP_VER = '2026-09-28.1';   /* 설정 화면에 표시 — 업데이트 반영 여부 확인용. 배포 때마다 올림 */
 
 /* ---------- 저장소 ---------- */
 var LS = {
@@ -1533,12 +1535,21 @@ function switchTab(name) {
 /* ---------- 설정 ---------- */
 var settingsSnapshot = { morning: '', reasons: '' };
 
+/* 문장 출처 안내 UI: 공용(저장소) 문장을 쓰는지, 이 기기 문장을 쓰는지 */
+function refreshSentenceSourceUI() {
+  var usingRepo = usingRepoSentences();
+  var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
+  $('repoSentencesNote').hidden = !usingRepo;
+  $('useRepoBtn').hidden = usingRepo || !repoHas;
+  $('localNote').hidden = usingRepo || !repoHas;
+}
+
 function openSettings() {
   stopPlay();   /* 낭독 중 설정 진입 시 정지 — 미리 듣기와 발화가 얽혀 멈추는 문제 방지 */
   var eff = effectiveSentences();   /* 로컬이 비어 있으면 저장소 기본 문장을 보여줌 */
   $('taMorning').value = eff.morning.join('\n');
   $('taReasons').value = eff.reasons.join('\n');
-  $('repoSentencesNote').hidden = !usingRepoSentences();
+  refreshSentenceSourceUI();
   settingsSnapshot.morning = $('taMorning').value;
   settingsSnapshot.reasons = $('taReasons').value;
   $('savedMsg').hidden = true;
@@ -1563,7 +1574,18 @@ $('saveSentencesBtn').addEventListener('click', function () {
   var parse = function (t) {
     return t.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
   };
-  sentences = { morning: parse($('taMorning').value), reasons: parse($('taReasons').value) };
+  var parsed = { morning: parse($('taMorning').value), reasons: parse($('taReasons').value) };
+  /* 공용(저장소) 문장과 완전히 같으면 기기 저장을 만들지 않음 —
+     무심코 '저장'을 눌러도 이후 공용 문장 업데이트가 계속 반영되게 */
+  var same = function (a, b) {
+    return a.length === b.length && a.every(function (s, i) { return s === b[i]; });
+  };
+  var repoHas = repoSentences.morning.length > 0 || repoSentences.reasons.length > 0;
+  if (repoHas && same(parsed.morning, repoSentences.morning) && same(parsed.reasons, repoSentences.reasons)) {
+    sentences = { morning: [], reasons: [] };
+  } else {
+    sentences = parsed;
+  }
   LS.set('aff.sentences', sentences);
   settingsSnapshot.morning = $('taMorning').value;
   settingsSnapshot.reasons = $('taReasons').value;
@@ -1572,10 +1594,27 @@ $('saveSentencesBtn').addEventListener('click', function () {
   recite.idx = 0; recite.done = false;
   renderRecite();
   warmFonts();
-  $('repoSentencesNote').hidden = !usingRepoSentences();
+  refreshSentenceSourceUI();
   var m = $('savedMsg');
   m.hidden = false;
   setTimeout(function () { m.hidden = true; }, 2000);
+});
+
+/* 이 기기 문장을 지우고 공용(저장소) 문장을 따라가기 */
+$('useRepoBtn').addEventListener('click', function () {
+  if (!confirm('이 기기에 저장된 문장을 지우고 저장소 공용 문장을 사용할까요?')) return;
+  sentences = { morning: [], reasons: [] };
+  LS.set('aff.sentences', sentences);
+  stopPlay();
+  recite.set = 'morning'; recite.idx = 0; recite.done = false;
+  renderRecite();
+  warmFonts();
+  var eff = effectiveSentences();
+  $('taMorning').value = eff.morning.join('\n');
+  $('taReasons').value = eff.reasons.join('\n');
+  settingsSnapshot.morning = $('taMorning').value;
+  settingsSnapshot.reasons = $('taReasons').value;
+  refreshSentenceSourceUI();
 });
 
 /* 음성 목록 (ko 우선 + 전체 보기) */
